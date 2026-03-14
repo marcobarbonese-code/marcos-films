@@ -2,7 +2,7 @@
   "name": "Marco's Films",
   "short_name": "Marco's Films",
   "description": "La mia collezione di film",
-  "start_url": "/",
+  "start_url": "/marcos-films/",
   "display": "standalone",
   "background_color": "#0a0a0f",
   "theme_color": "#0a0a0f",
