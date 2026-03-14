@@ -33,6 +33,31 @@
     --radius: 12px;
   }
 
+  :root.light {
+    --bg: #f4f2ee;
+    --surface: #eae7e1;
+    --card: #ffffff;
+    --border: #d4cfc6;
+    --accent: #c9a227;
+    --accent2: #c96327;
+    --text: #1a1814;
+    --muted: #8a8478;
+    --red: #c93030;
+  }
+
+  /* ── THEME TOGGLE ── */
+  #btn-theme {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 9px;
+    cursor: pointer;
+    color: var(--text);
+    display: flex; align-items: center;
+    transition: all .2s;
+  }
+  #btn-theme:hover { border-color: var(--accent); color: var(--accent); }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -610,7 +635,11 @@
   <div class="logo" id="header-logo">MARCO'S <span>FILMS</span></div>
   <div class="header-right">
     <div class="count-badge"><b id="count">0</b> <span id="count-label">film</span></div>
-    <button class="btn secondary" onclick="toggleSyncBar()" style="padding:7px 12px;font-size:12px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Sync</button>
+    <button id="btn-theme" onclick="toggleTheme()" title="Cambia tema">
+      <svg id="icon-dark" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg id="icon-light" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button class="btn secondary" onclick="toggleSyncBar()" style="padding:7px 10px;font-size:12px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></button>
   </div>
 </header>
 
@@ -834,6 +863,7 @@ async function switchMode(mode) {
 
 function applyModeUI() {
   const isFilms = currentMode === 'films';
+  const isLight = document.documentElement.classList.contains('light');
   // Header logo
   document.getElementById('header-logo').innerHTML =
     isFilms ? 'MARCO\'S <span>FILMS</span>' : 'MARCO\'S <span style="color:#7eb8f7">CARTOON</span>';
@@ -842,9 +872,14 @@ function applyModeUI() {
   document.getElementById('mode-cartoons').classList.toggle('active', !isFilms);
   // Count label
   document.getElementById('count-label').textContent = isFilms ? 'film' : 'cartoon';
-  // Accent color tweak for cartoon mode
-  document.documentElement.style.setProperty('--accent', isFilms ? '#e8c547' : '#7eb8f7');
-  document.documentElement.style.setProperty('--accent2', isFilms ? '#e87547' : '#5a9fd4');
+  // Accent color — films=gold, cartoons=blue, adjusted per theme
+  if (isFilms) {
+    document.documentElement.style.setProperty('--accent', isLight ? '#c9a227' : '#e8c547');
+    document.documentElement.style.setProperty('--accent2', isLight ? '#c96327' : '#e87547');
+  } else {
+    document.documentElement.style.setProperty('--accent', '#7eb8f7');
+    document.documentElement.style.setProperty('--accent2', '#5a9fd4');
+  }
   // Update count
   document.getElementById('count').textContent = allFilms.length;
 }
@@ -1523,6 +1558,34 @@ function setStatus(msg, cls) {
 function setProgress(p) {
   document.getElementById('progress-bar').style.width = p + '%';
 }
+
+// ──────────────────────────────────────────────
+// THEME
+// ──────────────────────────────────────────────
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.classList.add('light');
+    document.getElementById('icon-dark').style.display = 'block';
+    document.getElementById('icon-light').style.display = 'none';
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f4f2ee');
+  } else {
+    document.documentElement.classList.remove('light');
+    document.getElementById('icon-dark').style.display = 'none';
+    document.getElementById('icon-light').style.display = 'block';
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0a0a0f');
+  }
+}
+
+function toggleTheme() {
+  const isLight = document.documentElement.classList.contains('light');
+  const next = isLight ? 'dark' : 'light';
+  localStorage.setItem('theme', next);
+  applyTheme(next);
+  applyModeUI();
+}
+
+// Apply saved theme immediately
+applyTheme(localStorage.getItem('theme') || 'dark');
 
 // ──────────────────────────────────────────────
 // START
