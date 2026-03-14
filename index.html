@@ -81,6 +81,10 @@
     border-bottom: 1px solid var(--border);
     padding: 10px 16px;
     display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    position: fixed;
+    top: 52px;
+    left: 0; right: 0;
+    z-index: 98;
   }
   #sync-bar.hidden { display: none; }
   #dropbox-input {
@@ -127,7 +131,7 @@
     padding: 8px 16px;
     display: flex; flex-direction: column; gap: 8px;
     background: var(--bg);
-    position: sticky; top: 98px; z-index: 90;
+    position: sticky; top: 118px; z-index: 90;
     border-bottom: 1px solid var(--border);
   }
   .filter-row {
@@ -420,8 +424,8 @@
   #mode-bar {
     background: var(--bg);
     border-bottom: 1px solid var(--border);
-    padding: 6px 16px;
-    height: 46px;
+    padding: 16px 16px;
+    height: 66px;
     display: flex; align-items: center; justify-content: center;
     position: sticky; top: 52px; z-index: 95;
   }
@@ -494,7 +498,7 @@
   }
   .genre-grid {
     display: flex; flex-wrap: wrap; gap: 8px;
-    max-height: 55vh; overflow-y: auto;
+    max-height: 75vh; overflow-y: auto;
   }
   .genre-chip {
     background: var(--surface);
@@ -505,6 +509,11 @@
     cursor: pointer;
     transition: all .15s;
     color: var(--text);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .genre-chip:hover {
+    background: var(--card);
+    border-color: var(--muted);
   }
   .genre-chip.active {
     background: var(--accent);
@@ -512,33 +521,22 @@
     color: #000;
     font-weight: 500;
   }
-  /* ── YEAR FILTER POPUP ── */
-  #year-popup {
-    display: none;
-    position: fixed; inset: 0; z-index: 250;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(4px);
-    align-items: flex-end; justify-content: center;
-    padding-bottom: 0;
-  }
-  #year-popup.open { display: flex; }
-  #year-panel {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 18px 18px 0 0;
-    width: 100%; max-width: 520px;
-    padding: 20px 16px 32px;
-    animation: slideUp .22s ease;
-  }
-  #year-panel h3 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 18px; letter-spacing: 1px;
-    margin-bottom: 14px;
-    display: flex; align-items: center; justify-content: space-between;
+  .genre-chip.active:hover {
+    opacity: .85;
   }
   .genre-chip.reset {
-    border-color: var(--red);
-    color: var(--red);
+    border-color: var(--muted);
+    color: var(--muted);
+  }
+  .genre-chip.reset.active {
+    background: var(--surface);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .genre-chip.reset {
+    border-color: var(--muted);
+    color: var(--muted);
   }
 
   /* ── YEAR FILTER POPUP ── */
@@ -568,6 +566,9 @@
   #year-panel h3 button {
     background: none; border: none; color: var(--muted);
     cursor: pointer; display: flex; align-items: center;
+  }
+  #year-panel .genre-grid {
+    max-height: 75vh; overflow-y: auto;
   }
 
   /* ── SORT POPUP ── */
@@ -1158,7 +1159,7 @@ function openGenrePopup() {
   const sorted = [...genres].sort((a,b) => a.localeCompare(b));
 
   const grid = document.getElementById('genre-grid');
-  grid.innerHTML = `<span class="genre-chip reset ${!activeGenre ? 'active' : ''}" onclick="setGenre(null)">✕ Tutti</span>`
+  grid.innerHTML = `<span class="genre-chip reset ${!activeGenre ? 'active' : ''}" onclick="setGenre(null)">Tutti i generi</span>`
     + sorted.map(g => `<span class="genre-chip ${activeGenre === g ? 'active' : ''}" onclick="setGenre('${g.replace(/'/g,"\\'")}')">${g}</span>`).join('');
 
   document.getElementById('genre-popup').classList.add('open');
@@ -1194,7 +1195,7 @@ function openYearPopup() {
   const sorted = [...years].filter(Boolean).sort((a,b) => b - a);
 
   const grid = document.getElementById('year-grid');
-  grid.innerHTML = `<span class="genre-chip reset ${!activeYear ? 'active' : ''}" onclick="setYear(null)">✕ Tutti</span>`
+  grid.innerHTML = `<span class="genre-chip reset ${!activeYear ? 'active' : ''}" onclick="setYear(null)">Tutti gli anni</span>`
     + sorted.map(y => `<span class="genre-chip ${activeYear === y ? 'active' : ''}" onclick="setYear('${y}')">${y}</span>`).join('');
 
   document.getElementById('year-popup').classList.add('open');
