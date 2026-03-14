@@ -409,6 +409,43 @@
   @media (min-width: 400px) {
     #grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   }
+
+  /* ── MODE SWITCHER ── */
+  .mode-switcher {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .mode-btn {
+    background: none;
+    border: none;
+    border-radius: 7px;
+    padding: 5px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .2s;
+    display: flex; align-items: center; gap: 5px;
+    white-space: nowrap;
+  }
+  .mode-btn.active {
+    background: var(--card);
+    color: var(--text);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  .mode-btn.active.films { color: var(--accent); }
+  .mode-btn.active.cartoons { color: #7eb8f7; }
+  .mode-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.7;
+  }
 </style>
 </head>
 <body>
@@ -417,9 +454,17 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">MARCO'S <span>FILMS</span></div>
+  <div class="logo" id="header-logo">MARCO'S <span>FILMS</span></div>
+  <div class="mode-switcher" style="margin-right:4px">
+    <button class="mode-btn films active" id="mode-films" onclick="switchMode('films')">
+      <span class="mode-dot"></span> Film
+    </button>
+    <button class="mode-btn cartoons" id="mode-cartoons" onclick="switchMode('cartoons')">
+      <span class="mode-dot"></span> Cartoon
+    </button>
+  </div>
   <div class="header-right">
-    <div class="count-badge"><b id="count">0</b> film</div>
+    <div class="count-badge"><b id="count">0</b> <span id="count-label">film</span></div>
     <button class="btn secondary" onclick="toggleSyncBar()" style="padding:7px 12px;font-size:12px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Sync</button>
   </div>
 </header>
@@ -493,9 +538,25 @@ let allFilms = [];
 let affiches = {};
 let searchField = 'all';
 let currentEditId = null;
-let dropboxToken = localStorage.getItem('dbx_token') || null;
-let dropboxFilePath = localStorage.getItem('dbx_path') || null;
 let unsavedChanges = false;
+
+// Dual-mode state
+let currentMode = localStorage.getItem('current_mode') || 'films'; // 'films' | 'cartoons'
+
+// Per-mode stored credentials
+const MODES = {
+  films:    { token: null, path: null, db: null, films: [], affiches: {} },
+  cartoons: { token: null, path: null, db: null, films: [], affiches: {} }
+};
+MODES.films.token    = localStorage.getItem('dbx_token_films') || null;
+MODES.films.path     = localStorage.getItem('dbx_path_films')  || null;
+MODES.cartoons.token = localStorage.getItem('dbx_token_cartoons') || null;
+MODES.cartoons.path  = localStorage.getItem('dbx_path_cartoons')  || null;
+
+// Active mode shortcut helpers
+function m() { return MODES[currentMode]; }
+function dropboxToken() { return m().token; }
+function dropboxFilePath() { return m().path; }
 
 const DBX_APP_KEY = 'pef9xz4yiaywon0';
 const DBX_REDIRECT = location.href.split('?')[0].split('#')[0];
@@ -506,22 +567,87 @@ const DBX_REDIRECT = location.href.split('?')[0].split('#')[0];
 async function init() {
   SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}` });
 
-  // Handle OAuth callback (token in URL hash)
+  // Handle OAuth callback (token in URL hash) — includes which mode triggered it
   const hash = new URLSearchParams(location.hash.replace('#',''));
   const accessToken = hash.get('access_token');
+  const oauthMode = hash.get('state') || 'films'; // we pass mode in state param
   if (accessToken) {
-    dropboxToken = accessToken;
-    localStorage.setItem('dbx_token', accessToken);
+    MODES[oauthMode].token = accessToken;
+    localStorage.setItem(`dbx_token_${oauthMode}`, accessToken);
+    currentMode = oauthMode;
+    localStorage.setItem('current_mode', currentMode);
     history.replaceState(null, '', location.pathname);
   }
 
+  applyModeUI();
   updateAuthUI();
 
   // Auto-load file if already authenticated and path saved
-  if (dropboxToken && dropboxFilePath) {
+  if (dropboxToken() && dropboxFilePath()) {
     document.getElementById('sync-bar').classList.add('hidden');
-    await loadFileFromDropbox(dropboxFilePath);
+    await loadFileFromDropbox(dropboxFilePath());
   }
+}
+
+// ──────────────────────────────────────────────
+// MODE SWITCH
+// ──────────────────────────────────────────────
+async function switchMode(mode) {
+  if (mode === currentMode) return;
+
+  // Save current DB state into current mode slot
+  if (DB) {
+    m().db = DB;
+    m().films = [...allFilms];
+    m().affiches = {...affiches};
+  }
+
+  currentMode = mode;
+  localStorage.setItem('current_mode', mode);
+
+  // Restore target mode state
+  DB = m().db;
+  allFilms = m().films || [];
+  affiches = m().affiches || {};
+  unsavedChanges = false;
+
+  applyModeUI();
+  updateAuthUI();
+
+  if (DB) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('fab').classList.remove('hidden');
+    document.getElementById('sync-bar').classList.add('hidden');
+    doSearch();
+  } else if (dropboxToken() && dropboxFilePath()) {
+    document.getElementById('sync-bar').classList.add('hidden');
+    await loadFileFromDropbox(dropboxFilePath());
+  } else {
+    document.getElementById('grid').innerHTML = '';
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('loading').querySelector('p').textContent =
+      `Connetti Dropbox per caricare i ${mode === 'films' ? 'film' : 'cartoon'}`;
+    document.getElementById('fab').classList.add('hidden');
+    document.getElementById('btn-save').style.display = 'none';
+    document.getElementById('sync-bar').classList.remove('hidden');
+  }
+}
+
+function applyModeUI() {
+  const isFilms = currentMode === 'films';
+  // Header logo
+  document.getElementById('header-logo').innerHTML =
+    isFilms ? 'MARCO\'S <span>FILMS</span>' : 'MARCO\'S <span style="color:#7eb8f7">CARTOON</span>';
+  // Tab buttons
+  document.getElementById('mode-films').classList.toggle('active', isFilms);
+  document.getElementById('mode-cartoons').classList.toggle('active', !isFilms);
+  // Count label
+  document.getElementById('count-label').textContent = isFilms ? 'film' : 'cartoon';
+  // Accent color tweak for cartoon mode
+  document.documentElement.style.setProperty('--accent', isFilms ? '#e8c547' : '#7eb8f7');
+  document.documentElement.style.setProperty('--accent2', isFilms ? '#e87547' : '#5a9fd4');
+  // Update count
+  document.getElementById('count').textContent = allFilms.length;
 }
 
 // ──────────────────────────────────────────────
@@ -531,14 +657,15 @@ function dropboxLogin() {
   const authUrl = `https://www.dropbox.com/oauth2/authorize`
     + `?client_id=${DBX_APP_KEY}`
     + `&response_type=token`
-    + `&redirect_uri=${encodeURIComponent(DBX_REDIRECT)}`;
+    + `&redirect_uri=${encodeURIComponent(DBX_REDIRECT)}`
+    + `&state=${currentMode}`;
   location.href = authUrl;
 }
 
 function dropboxLogout() {
-  dropboxToken = null; dropboxFilePath = null;
-  localStorage.removeItem('dbx_token');
-  localStorage.removeItem('dbx_path');
+  m().token = null; m().path = null; m().db = null; m().films = []; m().affiches = {};
+  localStorage.removeItem(`dbx_token_${currentMode}`);
+  localStorage.removeItem(`dbx_path_${currentMode}`);
   DB = null; allFilms = []; affiches = {};
   document.getElementById('grid').innerHTML = '';
   document.getElementById('loading').style.display = 'flex';
@@ -550,12 +677,12 @@ function dropboxLogout() {
 }
 
 async function updateAuthUI() {
-  if (dropboxToken) {
+  if (dropboxToken()) {
     // Get user info
     try {
       const res = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${dropboxToken}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${dropboxToken()}`, 'Content-Type': 'application/json' },
         body: 'null'
       });
       if (res.ok) {
@@ -565,7 +692,7 @@ async function updateAuthUI() {
     } catch(e) {}
     document.getElementById('auth-section').style.display = 'none';
     document.getElementById('dropbox-section').style.display = 'flex';
-    if (dropboxFilePath) {
+    if (dropboxFilePath()) {
       document.getElementById('btn-save').style.display = 'inline-flex';
     }
   } else {
@@ -587,7 +714,7 @@ async function openFolderBrowser(folderPath) {
     const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${dropboxToken}`,
+        'Authorization': `Bearer ${dropboxToken()}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ path: folderPath, recursive: false })
@@ -666,8 +793,8 @@ function closeBrowserModal() {
 }
 
 async function selectDropboxFile(path, name) {
-  dropboxFilePath = path;
-  localStorage.setItem('dbx_path', path);
+  m().path = path;
+  localStorage.setItem(`dbx_path_${currentMode}`, path);
   await loadFileFromDropbox(path);
   document.getElementById('btn-save').style.display = 'inline-flex';
 }
@@ -682,7 +809,7 @@ async function loadFileFromDropbox(path) {
     const res = await fetch('https://content.dropboxapi.com/2/files/download', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${dropboxToken}`,
+        'Authorization': `Bearer ${dropboxToken()}`,
         'Dropbox-API-Arg': JSON.stringify({ path })
       }
     });
@@ -711,7 +838,7 @@ async function loadFileFromDropbox(path) {
 // SAVE TO DROPBOX
 // ──────────────────────────────────────────────
 async function saveToDropbox() {
-  if (!DB || !dropboxToken || !dropboxFilePath) {
+  if (!DB || !dropboxToken() || !dropboxFilePath()) {
     setStatus('Errore: nessun file associato', 'err'); return;
   }
   setStatus('Salvataggio su Dropbox...', '');
@@ -725,10 +852,10 @@ async function saveToDropbox() {
     const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${dropboxToken}`,
+        'Authorization': `Bearer ${dropboxToken()}`,
         'Content-Type': 'application/octet-stream',
         'Dropbox-API-Arg': JSON.stringify({
-          path: dropboxFilePath,
+          path: dropboxFilePath(),
           mode: 'overwrite',
           autorename: false,
           mute: false
@@ -745,6 +872,7 @@ async function saveToDropbox() {
     setProgress(100);
     setStatus('Salvato su Dropbox!', 'ok');
     unsavedChanges = false;
+    updateSaveBtn();
     setTimeout(() => setProgress(0), 800);
   } catch(e) {
     setStatus('' + e.message, 'err');
@@ -775,8 +903,11 @@ async function handleFileUpload(e) {
 
 function loadDB(data) {
   DB = new SQL.Database(data);
+  m().db = DB;
   loadAffiches();
   loadFilms();
+  m().films = [...allFilms];
+  m().affiches = {...affiches};
   document.getElementById('loading').style.display = 'none';
   document.getElementById('fab').classList.remove('hidden');
   document.getElementById('sync-bar').classList.add('hidden');
