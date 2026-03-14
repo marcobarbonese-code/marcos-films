@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Marco's Films</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js"></script>
+
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --card: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #e8c547;
+    --accent2: #e87547;
+    --text: #f0eeea;
+    --muted: #7a7a8a;
+    --red: #e84747;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .logo span { color: var(--accent2); }
+  .header-right {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .count-badge {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .count-badge b { color: var(--accent); }
+
+  /* ── SYNC BAR ── */
+  #sync-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  }
+  #sync-bar.hidden { display: none; }
+  #dropbox-input {
+    flex: 1; min-width: 200px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  #dropbox-input:focus { outline: none; border-color: var(--accent); }
+  .btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity .2s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn.secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn.danger { background: var(--red); color: #fff; }
+  #sync-status {
+    font-size: 12px;
+    color: var(--muted);
+    width: 100%;
+  }
+  #sync-status.ok { color: #5ecb82; }
+  #sync-status.err { color: var(--red); }
+
+  /* ── SEARCH / FILTERS ── */
+  #toolbar {
+    padding: 12px 16px;
+    display: flex; flex-wrap: wrap; gap: 8px;
+    background: var(--bg);
+    position: sticky; top: 57px; z-index: 90;
+    border-bottom: 1px solid var(--border);
+  }
+  .search-wrap {
+    position: relative; flex: 1; min-width: 180px;
+  }
+  .search-icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 14px; pointer-events: none;
+  }
+  #search {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px 9px 32px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  #search:focus { outline: none; border-color: var(--accent); }
+  #search::placeholder { color: var(--muted); }
+
+  select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+
+  /* Search type pills */
+  .search-pills {
+    display: flex; gap: 4px; width: 100%; flex-wrap: wrap;
+  }
+  .pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+    color: var(--muted);
+  }
+  .pill.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 500;
+  }
+
+  /* ── GRID ── */
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .film-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .2s, border-color .2s, box-shadow .2s;
+    position: relative;
+  }
+  .film-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 24px rgba(232,197,71,0.15);
+  }
+  .film-poster {
+    width: 100%; aspect-ratio: 2/3;
+    object-fit: cover;
+    background: var(--surface);
+    display: block;
+  }
+  .film-poster-placeholder {
+    width: 100%; aspect-ratio: 2/3;
+    background: var(--surface);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+    color: var(--border);
+  }
+  .film-info {
+    padding: 8px 10px 10px;
+  }
+  .film-title {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .film-meta {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .film-rating {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(10,10,15,0.85);
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  /* ── MODAL ── */
+  #modal-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(4px);
+    overflow-y: auto;
+    padding: 20px 16px;
+  }
+  #modal-overlay.open { display: flex; align-items: flex-start; justify-content: center; }
+  #modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 100%; max-width: 520px;
+    overflow: hidden;
+    animation: slideUp .25s ease;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .modal-poster-wrap {
+    position: relative;
+    height: 260px;
+    overflow: hidden;
+  }
+  #modal-poster {
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+  .modal-poster-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, transparent 40%, var(--card) 100%);
+  }
+  .modal-body { padding: 16px 20px 24px; }
+  .modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 1px;
+    line-height: 1.1;
+    margin-bottom: 2px;
+  }
+  .modal-orig {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+  .modal-tags {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 14px;
+  }
+  .tag {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .tag.accent { background: rgba(232,197,71,0.12); border-color: rgba(232,197,71,0.3); color: var(--accent); }
+  .modal-synopsis {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #c0bebb;
+    margin-bottom: 16px;
+  }
+  .modal-section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .modal-people {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  .modal-actions {
+    display: flex; gap: 8px; margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  #modal-close {
+    position: absolute; top: 12px; right: 12px;
+    background: rgba(0,0,0,0.6);
+    border: none; color: #fff;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+  }
+
+  /* ── EDIT FORM ── */
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 5px; display: block; }
+  .form-input, .form-textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+  }
+  .form-input:focus, .form-textarea:focus { outline: none; border-color: var(--accent); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+
+  /* ── LOADING ── */
+  #loading {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 60vh; gap: 16px;
+  }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading p { color: var(--muted); font-size: 14px; }
+
+  /* ── EMPTY ── */
+  #empty {
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    min-height: 40vh; gap: 8px; color: var(--muted);
+  }
+  #empty .icon { font-size: 48px; }
+
+  /* ── ADD FILM BUTTON ── */
+  #fab {
+    position: fixed; bottom: 24px; right: 20px; z-index: 150;
+    width: 52px; height: 52px;
+    background: var(--accent);
+    border: none; border-radius: 50%;
+    font-size: 24px; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(232,197,71,0.4);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .2s;
+  }
+  #fab:hover { transform: scale(1.1); }
+  #fab.hidden { display: none; }
+
+  /* ── PROGRESS BAR ── */
+  #progress-bar {
+    position: fixed; top: 0; left: 0; z-index: 999;
+    height: 3px; background: var(--accent);
+    width: 0; transition: width .3s;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (min-width: 400px) {
+    #grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">MARCO'S <span>FILMS</span></div>
+  <div class="header-right">
+    <div class="count-badge"><b id="count">0</b> film</div>
+    <button class="btn secondary" onclick="toggleSyncBar()" style="padding:7px 12px;font-size:12px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Sync</button>
+  </div>
+</header>
+
+<!-- SYNC BAR -->
+<div id="sync-bar">
+  <div id="auth-section" style="width:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <button class="btn" id="btn-login" onclick="dropboxLogin()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Connetti Dropbox</button>
+    <button class="btn secondary" onclick="loadFromFile()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> File locale</button>
+    <input type="file" id="file-input" accept=".data,.sqlite,.db" style="display:none" onchange="handleFileUpload(event)">
+    <span style="font-size:12px;color:var(--muted)">oppure scegli un file dal tuo dispositivo</span>
+  </div>
+  <div id="dropbox-section" style="width:100%;display:none;flex-wrap:wrap;gap:8px;align-items:center">
+    <span id="dropbox-user" style="font-size:13px;color:var(--accent)"></span>
+    <button class="btn secondary" id="btn-pick" onclick="dropboxPickFile()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg> Scegli file .data</button>
+    <button class="btn secondary" onclick="saveToDropbox()" id="btn-save" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="12" y1="13" x2="12" y2="19"/><polyline points="9 16 12 19 15 16"/></svg> Salva su Dropbox</button>
+    <button class="btn danger" style="padding:7px 10px;font-size:12px" onclick="dropboxLogout()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Disconnetti</button>
+  </div>
+  <div id="sync-status"></div>
+</div>
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <div class="search-wrap">
+    <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+    <input id="search" type="text" placeholder="Cerca film, regista, attore..." oninput="doSearch()">
+  </div>
+  <select id="sort" onchange="doSearch()">
+    <option value="title">A-Z</option>
+    <option value="year_desc">Anno ↓</option>
+    <option value="year_asc">Anno ↑</option>
+    <option value="rating">Voto ↓</option>
+  </select>
+  <div class="search-pills" id="search-pills">
+    <span class="pill active" data-field="all" onclick="setPill(this)">Tutti i campi</span>
+    <span class="pill" data-field="title" onclick="setPill(this)">Titolo</span>
+    <span class="pill" data-field="director" onclick="setPill(this)">Regista</span>
+    <span class="pill" data-field="actor" onclick="setPill(this)">Attore</span>
+    <span class="pill" data-field="genre" onclick="setPill(this)">Genere</span>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main>
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Carica il database dal link Dropbox o da file locale</p>
+  </div>
+  <div id="empty"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></div><p>Nessun film trovato</p></div>
+  <div id="grid"></div>
+</main>
+
+<!-- FAB -->
+<button id="fab" class="hidden" onclick="openAddModal()" title="Aggiungi film"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+
+<!-- MODAL -->
+<div id="modal-overlay" onclick="closeModalIfOutside(event)">
+  <div id="modal" style="position:relative">
+    <button id="modal-close" onclick="closeModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────
+// STATE
+// ──────────────────────────────────────────────
+let DB = null;
+let SQL = null;
+let allFilms = [];
+let affiches = {};
+let searchField = 'all';
+let currentEditId = null;
+let dropboxToken = localStorage.getItem('dbx_token') || null;
+let dropboxFilePath = localStorage.getItem('dbx_path') || null;
+let unsavedChanges = false;
+
+const DBX_APP_KEY = 'pef9xz4yiaywon0';
+const DBX_REDIRECT = location.href.split('?')[0].split('#')[0];
+
+// ──────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────
+async function init() {
+  SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}` });
+
+  // Handle OAuth callback (token in URL hash)
+  const hash = new URLSearchParams(location.hash.replace('#',''));
+  const accessToken = hash.get('access_token');
+  if (accessToken) {
+    dropboxToken = accessToken;
+    localStorage.setItem('dbx_token', accessToken);
+    history.replaceState(null, '', location.pathname);
+  }
+
+  updateAuthUI();
+
+  // Auto-load file if already authenticated and path saved
+  if (dropboxToken && dropboxFilePath) {
+    document.getElementById('sync-bar').classList.add('hidden');
+    await loadFileFromDropbox(dropboxFilePath);
+  }
+}
+
+// ──────────────────────────────────────────────
+// DROPBOX AUTH
+// ──────────────────────────────────────────────
+function dropboxLogin() {
+  const authUrl = `https://www.dropbox.com/oauth2/authorize`
+    + `?client_id=${DBX_APP_KEY}`
+    + `&response_type=token`
+    + `&redirect_uri=${encodeURIComponent(DBX_REDIRECT)}`;
+  location.href = authUrl;
+}
+
+function dropboxLogout() {
+  dropboxToken = null; dropboxFilePath = null;
+  localStorage.removeItem('dbx_token');
+  localStorage.removeItem('dbx_path');
+  DB = null; allFilms = []; affiches = {};
+  document.getElementById('grid').innerHTML = '';
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('loading').querySelector('p').textContent = 'Connetti Dropbox per caricare il database';
+  document.getElementById('fab').classList.add('hidden');
+  document.getElementById('btn-save').style.display = 'none';
+  updateAuthUI();
+  document.getElementById('sync-bar').classList.remove('hidden');
+}
+
+async function updateAuthUI() {
+  if (dropboxToken) {
+    // Get user info
+    try {
+      const res = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${dropboxToken}`, 'Content-Type': 'application/json' },
+        body: 'null'
+      });
+      if (res.ok) {
+        const u = await res.json();
+        document.getElementById('dropbox-user').textContent = `${u.name.display_name}`;
+      }
+    } catch(e) {}
+    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('dropbox-section').style.display = 'flex';
+    if (dropboxFilePath) {
+      document.getElementById('btn-save').style.display = 'inline-flex';
+    }
+  } else {
+    document.getElementById('auth-section').style.display = 'flex';
+    document.getElementById('dropbox-section').style.display = 'none';
+  }
+}
+
+// ──────────────────────────────────────────────
+// DROPBOX FILE BROWSER (via API, no Chooser SDK)
+// ──────────────────────────────────────────────
+async function dropboxPickFile() {
+  await openFolderBrowser('');
+}
+
+async function openFolderBrowser(folderPath) {
+  setStatus('Lettura cartella...', '');
+  try {
+    const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${dropboxToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ path: folderPath, recursive: false })
+    });
+    if (!res.ok) throw new Error('Errore lettura Dropbox');
+    const data = await res.json();
+    setStatus('', '');
+    showFileBrowser(folderPath, data.entries);
+  } catch(e) {
+    setStatus('' + e.message, 'err');
+  }
+}
+
+function showFileBrowser(currentPath, entries) {
+  entries.sort((a,b) => {
+    if (a['.tag'] === b['.tag']) return a.name.localeCompare(b.name);
+    return a['.tag'] === 'folder' ? -1 : 1;
+  });
+
+  const items = entries.map(e => {
+    const icon = e['.tag'] === 'folder'
+      ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'
+      : e.name.match(/\.(data|sqlite|db)$/)
+        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e8c547" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+    const isSelectable = e['.tag'] === 'file' && e.name.match(/\.(data|sqlite|db)$/);
+    const pathEsc = e.path_display.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const nameEsc = e.name.replace(/'/g,"\\'");
+    const clickAction = e['.tag'] === 'folder'
+      ? `openFolderBrowser('${pathEsc}'); closeBrowserModal();`
+      : isSelectable
+        ? `selectDropboxFile('${pathEsc}', '${nameEsc}'); closeBrowserModal();`
+        : '';
+    const style = isSelectable
+      ? 'color:var(--accent);font-weight:500;cursor:pointer'
+      : e['.tag'] === 'folder'
+        ? 'cursor:pointer'
+        : 'color:var(--muted);cursor:default';
+    const hoverable = e['.tag'] === 'folder' || isSelectable;
+    return `<div onclick="${clickAction}" style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;${style}" onmouseover="if(${hoverable})this.style.background='var(--surface)'" onmouseout="this.style.background=''"><span>${icon}</span><span>${e.name}</span></div>`;
+  }).join('');
+
+  const parentPath = currentPath.includes('/') ? currentPath.substring(0, currentPath.lastIndexOf('/')) : '';
+  const backBtn = currentPath
+    ? `<div onclick="openFolderBrowser('${parentPath}'); closeBrowserModal();" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--accent)" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg></span><span>Su (${parentPath || 'Root'})</span></div>`
+    : '';
+
+  const pathLabel = currentPath || '/ Root Dropbox';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'browser-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;display:flex;align-items:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg> Scegli file</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${pathLabel}</div>
+        </div>
+        <button onclick="closeBrowserModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;width:28px;height:28px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div style="overflow-y:auto;flex:1">
+        ${backBtn}
+        ${items || '<div style="padding:20px;color:var(--muted);text-align:center">Cartella vuota</div>'}
+      </div>
+      <div style="padding:10px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)">
+        Seleziona un file .data, .sqlite o .db — naviga nelle cartelle cliccando su <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function closeBrowserModal() {
+  const m = document.getElementById('browser-modal');
+  if (m) m.remove();
+}
+
+async function selectDropboxFile(path, name) {
+  dropboxFilePath = path;
+  localStorage.setItem('dbx_path', path);
+  await loadFileFromDropbox(path);
+  document.getElementById('btn-save').style.display = 'inline-flex';
+}
+
+// ──────────────────────────────────────────────
+// LOAD FILE FROM DROPBOX API
+// ──────────────────────────────────────────────
+async function loadFileFromDropbox(path) {
+  setStatus('Download da Dropbox...', '');
+  setProgress(15);
+  try {
+    const res = await fetch('https://content.dropboxapi.com/2/files/download', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${dropboxToken}`,
+        'Dropbox-API-Arg': JSON.stringify({ path })
+      }
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error_summary || 'Errore download');
+    }
+    setProgress(65);
+    const buf = await res.arrayBuffer();
+    setProgress(88);
+    loadDB(new Uint8Array(buf));
+    setStatus('Database sincronizzato', 'ok');
+    setProgress(100);
+    setTimeout(() => setProgress(0), 800);
+    document.getElementById('btn-save').style.display = 'inline-flex';
+    updateAuthUI();
+  } catch(e) {
+    setStatus('' + e.message, 'err');
+    setProgress(0);
+    // Token might be expired
+    if (e.message.includes('expired') || e.message.includes('invalid')) dropboxLogout();
+  }
+}
+
+// ──────────────────────────────────────────────
+// SAVE TO DROPBOX
+// ──────────────────────────────────────────────
+async function saveToDropbox() {
+  if (!DB || !dropboxToken || !dropboxFilePath) {
+    setStatus('Errore: nessun file associato', 'err'); return;
+  }
+  setStatus('Salvataggio su Dropbox...', '');
+  setProgress(20);
+  document.getElementById('btn-save').disabled = true;
+
+  try {
+    const data = DB.export();
+    const blob = new Blob([data], { type: 'application/octet-stream' });
+
+    const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${dropboxToken}`,
+        'Content-Type': 'application/octet-stream',
+        'Dropbox-API-Arg': JSON.stringify({
+          path: dropboxFilePath,
+          mode: 'overwrite',
+          autorename: false,
+          mute: false
+        })
+      },
+      body: blob
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error_summary || 'Upload fallito');
+    }
+
+    setProgress(100);
+    setStatus('Salvato su Dropbox!', 'ok');
+    unsavedChanges = false;
+    setTimeout(() => setProgress(0), 800);
+  } catch(e) {
+    setStatus('' + e.message, 'err');
+    setProgress(0);
+  }
+  document.getElementById('btn-save').disabled = false;
+}
+
+// ──────────────────────────────────────────────
+// SYNC BAR TOGGLE
+// ──────────────────────────────────────────────
+function toggleSyncBar() {
+  document.getElementById('sync-bar').classList.toggle('hidden');
+}
+
+// ──────────────────────────────────────────────
+// FILE LOCALE
+// ──────────────────────────────────────────────
+function loadFromFile() { document.getElementById('file-input').click(); }
+
+async function handleFileUpload(e) {
+  const file = e.target.files[0]; if (!file) return;
+  setStatus('Lettura file...', '');
+  const buf = await file.arrayBuffer();
+  loadDB(new Uint8Array(buf));
+  setStatus('File caricato localmente (non sincronizzato)', 'ok');
+}
+
+function loadDB(data) {
+  DB = new SQL.Database(data);
+  loadAffiches();
+  loadFilms();
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('fab').classList.remove('hidden');
+  document.getElementById('sync-bar').classList.add('hidden');
+}
+
+// ──────────────────────────────────────────────
+// LOAD DATA
+// ──────────────────────────────────────────────
+function loadAffiches() {
+  affiches = {};
+  try {
+    const res = DB.exec("SELECT IDFilm, Affiche FROM affiches");
+    if (res.length) {
+      res[0].values.forEach(([id, data]) => {
+        if (data) {
+          const bytes = new Uint8Array(data);
+          const blob = new Blob([bytes], {type:'image/jpeg'});
+          affiches[id] = URL.createObjectURL(blob);
+        }
+      });
+    }
+  } catch(e) { console.warn('Affiches error:', e); }
+}
+
+function loadFilms() {
+  const res = DB.exec(`SELECT ID, TitreVF, TitreVO, Genre, Annee, Duree, Note, Synopsis,
+    Acteurs, Realisateurs, Support, Langues, SousTitres, Pays, Commentaires FROM films`);
+  if (!res.length) { allFilms = []; renderGrid([]); return; }
+  allFilms = res[0].values.map(r => ({
+    id: r[0], title: r[1] || '', titleOrig: r[2] || '', genre: r[3] || '',
+    year: r[4] || '', duration: r[5] || '', rating: r[6] || '',
+    synopsis: r[7] || '', actors: r[8] || '', directors: r[9] || '',
+    support: r[10] || '', languages: r[11] || '', subtitles: r[12] || '',
+    country: r[13] || '', comments: r[14] || ''
+  }));
+  doSearch();
+}
+
+// ──────────────────────────────────────────────
+// SEARCH & FILTER
+// ──────────────────────────────────────────────
+function setPill(el) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  searchField = el.dataset.field;
+  doSearch();
+}
+
+function doSearch() {
+  if (!allFilms.length) return;
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const sort = document.getElementById('sort').value;
+
+  let filtered = allFilms.filter(f => {
+    if (!q) return true;
+    if (searchField === 'title') return f.title.toLowerCase().includes(q) || f.titleOrig.toLowerCase().includes(q);
+    if (searchField === 'director') return f.directors.toLowerCase().includes(q);
+    if (searchField === 'actor') return f.actors.toLowerCase().includes(q);
+    if (searchField === 'genre') return f.genre.toLowerCase().includes(q);
+    // all
+    return f.title.toLowerCase().includes(q) || f.titleOrig.toLowerCase().includes(q)
+      || f.directors.toLowerCase().includes(q) || f.actors.toLowerCase().includes(q)
+      || f.genre.toLowerCase().includes(q);
+  });
+
+  filtered.sort((a, b) => {
+    if (sort === 'title') return a.title.localeCompare(b.title);
+    if (sort === 'year_desc') return (b.year||0) - (a.year||0);
+    if (sort === 'year_asc') return (a.year||0) - (b.year||0);
+    if (sort === 'rating') return (b.rating||0) - (a.rating||0);
+    return 0;
+  });
+
+  document.getElementById('count').textContent = filtered.length;
+  renderGrid(filtered);
+}
+
+// ──────────────────────────────────────────────
+// RENDER GRID
+// ──────────────────────────────────────────────
+function renderGrid(films) {
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+
+  if (!films.length) {
+    grid.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+
+  grid.innerHTML = films.map(f => {
+    const poster = affiches[f.id]
+      ? `<img class="film-poster" src="${affiches[f.id]}" alt="${esc(f.title)}" loading="lazy">`
+      : `<div class="film-poster-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></div>`;
+    const rating = f.rating ? `<div class="film-rating"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ${f.rating}</div>` : '';
+    return `
+      <div class="film-card" onclick="openFilm(${f.id})">
+        ${poster}
+        ${rating}
+        <div class="film-info">
+          <div class="film-title">${esc(f.title)}</div>
+          <div class="film-meta">${esc(f.year)}${f.duration ? ' · ' + f.duration + 'min' : ''}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ──────────────────────────────────────────────
+// FILM DETAIL MODAL
+// ──────────────────────────────────────────────
+function openFilm(id) {
+  const f = allFilms.find(x => x.id === id);
+  if (!f) return;
+
+  const posterHTML = affiches[id]
+    ? `<div class="modal-poster-wrap"><img id="modal-poster" src="${affiches[id]}" alt="${esc(f.title)}"><div class="modal-poster-overlay"></div></div>`
+    : '';
+
+  const directors = f.directors.split(/[\r\n]+/).filter(Boolean);
+  const actors = f.actors.split(/[\r\n]+/).filter(Boolean);
+
+  const tags = [
+    f.year && `<span class="tag">${esc(f.year)}</span>`,
+    f.duration && `<span class="tag">${f.duration} min</span>`,
+    f.rating && `<span class="tag accent"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ${f.rating}/10</span>`,
+    f.country && `<span class="tag">${esc(f.country)}</span>`,
+    f.support && `<span class="tag">${esc(f.support)}</span>`,
+  ].filter(Boolean).join('');
+
+  const genreTags = f.genre.split('/').map(g => `<span class="tag">${esc(g.trim())}</span>`).join('');
+
+  document.getElementById('modal-content').innerHTML = `
+    ${posterHTML}
+    <div class="modal-body">
+      <div class="modal-title">${esc(f.title)}</div>
+      ${f.titleOrig !== f.title ? `<div class="modal-orig">${esc(f.titleOrig)}</div>` : ''}
+      <div class="modal-tags">${tags}</div>
+      ${f.genre ? `<div class="modal-tags" style="margin-bottom:12px">${genreTags}</div>` : ''}
+      ${f.synopsis ? `<p class="modal-synopsis">${esc(f.synopsis)}</p>` : ''}
+      ${directors.length ? `
+        <div class="modal-section-title">Regia</div>
+        <div class="modal-people">${directors.map(d => esc(d)).join(' · ')}</div>` : ''}
+      ${actors.length ? `
+        <div class="modal-section-title">Cast</div>
+        <div class="modal-people">${actors.map(a => esc(a)).join(' · ')}</div>` : ''}
+      ${f.comments ? `
+        <div class="modal-section-title">Note personali</div>
+        <div class="modal-people" style="color:var(--muted)">${esc(f.comments)}</div>` : ''}
+      <div class="modal-actions">
+        <button class="btn" onclick="openEditModal(${id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Modifica</button>
+        <button class="btn danger" onclick="deleteFilm(${id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Elimina</button>
+        <button class="btn secondary" style="margin-left:auto" onclick="closeModal()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Chiudi</button>
+      </div>
+    </div>`;
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+// ──────────────────────────────────────────────
+// EDIT MODAL
+// ──────────────────────────────────────────────
+function openEditModal(id) {
+  const f = allFilms.find(x => x.id === id);
+  currentEditId = id;
+  showForm(f);
+}
+
+function openAddModal() {
+  currentEditId = null;
+  showForm(null);
+}
+
+function showForm(f) {
+  const v = f || {};
+  document.getElementById('modal-content').innerHTML = `
+    <div class="modal-body" style="padding-top:24px">
+      <div class="modal-title" style="margin-bottom:20px">${f ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Modifica film' : '+ Nuovo film'}</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Titolo italiano</label>
+          <input class="form-input" id="f-title" value="${esc(v.title||'')}" placeholder="Titolo VF">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Titolo originale</label>
+          <input class="form-input" id="f-titleOrig" value="${esc(v.titleOrig||'')}" placeholder="Titolo VO">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Anno</label>
+          <input class="form-input" id="f-year" value="${esc(v.year||'')}" placeholder="2024">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Durata (min)</label>
+          <input class="form-input" id="f-duration" value="${esc(v.duration||'')}" placeholder="90">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Voto (/10)</label>
+          <input class="form-input" id="f-rating" value="${esc(v.rating||'')}" placeholder="8">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Genere</label>
+        <input class="form-input" id="f-genre" value="${esc(v.genre||'')}" placeholder="Animazione / Avventura">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Regia (uno per riga)</label>
+        <textarea class="form-textarea" id="f-directors" style="min-height:60px">${esc(v.directors||'')}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Attori (uno per riga)</label>
+        <textarea class="form-textarea" id="f-actors" style="min-height:60px">${esc(v.actors||'')}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Synopsis</label>
+        <textarea class="form-textarea" id="f-synopsis">${esc(v.synopsis||'')}</textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Paese</label>
+          <input class="form-input" id="f-country" value="${esc(v.country||'')}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Supporto</label>
+          <input class="form-input" id="f-support" value="${esc(v.support||'')}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note personali</label>
+        <textarea class="form-textarea" id="f-comments" style="min-height:50px">${esc(v.comments||'')}</textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="saveFilm()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salva</button>
+        ${f ? `<button class="btn secondary" onclick="openFilm(${f.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> Indietro</button>` : ''}
+        <button class="btn secondary" style="margin-left:auto" onclick="closeModal()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Annulla</button>
+      </div>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function saveFilm() {
+  const vals = {
+    TitreVF: gv('f-title'), TitreVO: gv('f-titleOrig'),
+    Annee: gv('f-year'), Duree: gv('f-duration'), Note: gv('f-rating'),
+    Genre: gv('f-genre'), Realisateurs: gv('f-directors'), Acteurs: gv('f-actors'),
+    Synopsis: gv('f-synopsis'), Pays: gv('f-country'), Support: gv('f-support'),
+    Commentaires: gv('f-comments'), DateHeureMAJ: new Date().toISOString()
+  };
+
+  if (currentEditId) {
+    const sets = Object.entries(vals).map(([k]) => `${k}=?`).join(',');
+    DB.run(`UPDATE films SET ${sets} WHERE ID=?`, [...Object.values(vals), currentEditId]);
+  } else {
+    const keys = Object.keys(vals).join(',');
+    const placeholders = Object.keys(vals).map(() => '?').join(',');
+    DB.run(`INSERT INTO films (${keys}) VALUES (${placeholders})`, Object.values(vals));
+  }
+  unsavedChanges = true;
+  updateSaveBtn();
+  loadFilms();
+  closeModal();
+}
+
+function deleteFilm(id) {
+  if (!confirm('Eliminare questo film?')) return;
+  DB.run('DELETE FROM films WHERE ID=?', [id]);
+  DB.run('DELETE FROM affiches WHERE IDFilm=?', [id]);
+  unsavedChanges = true;
+  updateSaveBtn();
+  loadFilms();
+  closeModal();
+}
+
+function updateSaveBtn() {
+  const btn = document.getElementById('btn-save');
+  if (!btn) return;
+  if (unsavedChanges) {
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="12" y1="13" x2="12" y2="19"/><polyline points="9 16 12 19 15 16"/></svg> Salva su Dropbox ●';
+    btn.style.background = 'var(--accent2)';
+  } else {
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="12" y1="13" x2="12" y2="19"/><polyline points="9 16 12 19 15 16"/></svg> Salva su Dropbox';
+    btn.style.background = '';
+  }
+}
+
+// ──────────────────────────────────────────────
+// MODAL UTILS
+// ──────────────────────────────────────────────
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+function closeModalIfOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+// ──────────────────────────────────────────────
+// UTILS
+// ──────────────────────────────────────────────
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function gv(id) { return document.getElementById(id)?.value || ''; }
+function setStatus(msg, cls) {
+  const el = document.getElementById('sync-status');
+  const icon = cls === 'ok'
+    ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px"><polyline points="20 6 9 17 4 12"/></svg>'
+    : cls === 'err'
+    ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:middle;margin-right:5px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+    : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:middle;margin-right:5px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+  el.innerHTML = msg ? icon + msg : '';
+  el.className = cls;
+}
+function setProgress(p) {
+  document.getElementById('progress-bar').style.width = p + '%';
+}
+
+// ──────────────────────────────────────────────
+// START
+// ──────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
