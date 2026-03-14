@@ -127,7 +127,7 @@
     padding: 12px 16px;
     display: flex; flex-wrap: wrap; gap: 8px;
     background: var(--bg);
-    position: sticky; top: 57px; z-index: 90;
+    position: sticky; top: 103px; z-index: 90;
     border-bottom: 1px solid var(--border);
   }
   .search-wrap {
@@ -410,7 +410,14 @@
     #grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   }
 
-  /* ── MODE SWITCHER ── */
+  /* ── MODE SWITCHER BAR ── */
+  #mode-bar {
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex; align-items: center;
+    position: sticky; top: 57px; z-index: 95;
+  }
   .mode-switcher {
     display: flex;
     background: var(--surface);
@@ -423,9 +430,9 @@
     background: none;
     border: none;
     border-radius: 7px;
-    padding: 5px 12px;
+    padding: 5px 16px;
     font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--muted);
     cursor: pointer;
@@ -446,6 +453,60 @@
     background: currentColor;
     opacity: 0.7;
   }
+
+  /* ── GENRE FILTER POPUP ── */
+  #genre-popup {
+    display: none;
+    position: fixed; inset: 0; z-index: 250;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    align-items: flex-end; justify-content: center;
+    padding-bottom: 0;
+  }
+  #genre-popup.open { display: flex; }
+  #genre-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px 18px 0 0;
+    width: 100%; max-width: 520px;
+    padding: 20px 16px 32px;
+    animation: slideUp .22s ease;
+  }
+  #genre-panel h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px; letter-spacing: 1px;
+    margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #genre-panel h3 button {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 18px;
+    display: flex; align-items: center;
+  }
+  .genre-grid {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    max-height: 55vh; overflow-y: auto;
+  }
+  .genre-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all .15s;
+    color: var(--text);
+  }
+  .genre-chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 500;
+  }
+  .genre-chip.reset {
+    border-color: var(--red);
+    color: var(--red);
+  }
 </style>
 </head>
 <body>
@@ -455,7 +516,15 @@
 <!-- HEADER -->
 <header>
   <div class="logo" id="header-logo">MARCO'S <span>FILMS</span></div>
-  <div class="mode-switcher" style="margin-right:4px">
+  <div class="header-right">
+    <div class="count-badge"><b id="count">0</b> <span id="count-label">film</span></div>
+    <button class="btn secondary" onclick="toggleSyncBar()" style="padding:7px 12px;font-size:12px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Sync</button>
+  </div>
+</header>
+
+<!-- MODE SWITCHER BAR -->
+<div id="mode-bar">
+  <div class="mode-switcher">
     <button class="mode-btn films active" id="mode-films" onclick="switchMode('films')">
       <span class="mode-dot"></span> Film
     </button>
@@ -463,11 +532,7 @@
       <span class="mode-dot"></span> Cartoon
     </button>
   </div>
-  <div class="header-right">
-    <div class="count-badge"><b id="count">0</b> <span id="count-label">film</span></div>
-    <button class="btn secondary" onclick="toggleSyncBar()" style="padding:7px 12px;font-size:12px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Sync</button>
-  </div>
-</header>
+</div>
 
 <!-- SYNC BAR -->
 <div id="sync-bar">
@@ -498,12 +563,24 @@
     <option value="year_asc">Anno ↑</option>
     <option value="rating">Voto ↓</option>
   </select>
+  <button class="btn secondary" onclick="openGenrePopup()" id="btn-genre" style="padding:8px 12px;font-size:13px;gap:6px;display:inline-flex;align-items:center">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+    <span id="btn-genre-label">Genere</span>
+  </button>
   <div class="search-pills" id="search-pills">
-    <span class="pill active" data-field="all" onclick="setPill(this)">Tutti i campi</span>
+    <span class="pill active" data-field="all" onclick="setPill(this)">Tutti</span>
     <span class="pill" data-field="title" onclick="setPill(this)">Titolo</span>
     <span class="pill" data-field="director" onclick="setPill(this)">Regista</span>
     <span class="pill" data-field="actor" onclick="setPill(this)">Attore</span>
     <span class="pill" data-field="genre" onclick="setPill(this)">Genere</span>
+  </div>
+</div>
+
+<!-- GENRE POPUP -->
+<div id="genre-popup" onclick="closeGenrePopupIfOutside(event)">
+  <div id="genre-panel">
+    <h3>Filtra per genere <button onclick="closeGenrePopup()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></h3>
+    <div class="genre-grid" id="genre-grid"></div>
   </div>
 </div>
 
@@ -604,6 +681,13 @@ async function switchMode(mode) {
 
   currentMode = mode;
   localStorage.setItem('current_mode', mode);
+
+  // Reset genre filter
+  activeGenre = null;
+  const btn = document.getElementById('btn-genre');
+  if (btn) { btn.style.borderColor = ''; btn.style.color = ''; }
+  const lbl = document.getElementById('btn-genre-label');
+  if (lbl) lbl.textContent = 'Genere';
 
   // Restore target mode state
   DB = m().db;
@@ -947,6 +1031,45 @@ function loadFilms() {
 }
 
 // ──────────────────────────────────────────────
+// GENRE FILTER POPUP
+// ──────────────────────────────────────────────
+let activeGenre = null;
+
+function openGenrePopup() {
+  // Build genre list from current films
+  const genres = new Set();
+  allFilms.forEach(f => {
+    if (f.genre) f.genre.split(/[\/,]/).forEach(g => { const t = g.trim(); if (t) genres.add(t); });
+  });
+  const sorted = [...genres].sort((a,b) => a.localeCompare(b));
+
+  const grid = document.getElementById('genre-grid');
+  grid.innerHTML = `<span class="genre-chip reset ${!activeGenre ? 'active' : ''}" onclick="setGenre(null)">✕ Tutti</span>`
+    + sorted.map(g => `<span class="genre-chip ${activeGenre === g ? 'active' : ''}" onclick="setGenre('${g.replace(/'/g,"\\'")}')">${g}</span>`).join('');
+
+  document.getElementById('genre-popup').classList.add('open');
+}
+
+function closeGenrePopup() {
+  document.getElementById('genre-popup').classList.remove('open');
+}
+
+function closeGenrePopupIfOutside(e) {
+  if (e.target === document.getElementById('genre-popup')) closeGenrePopup();
+}
+
+function setGenre(genre) {
+  activeGenre = genre;
+  const label = genre ? `Genere: ${genre}` : 'Genere';
+  document.getElementById('btn-genre-label').textContent = label;
+  const btn = document.getElementById('btn-genre');
+  btn.style.borderColor = genre ? 'var(--accent)' : '';
+  btn.style.color = genre ? 'var(--accent)' : '';
+  closeGenrePopup();
+  doSearch();
+}
+
+// ──────────────────────────────────────────────
 // SEARCH & FILTER
 // ──────────────────────────────────────────────
 function setPill(el) {
@@ -962,6 +1085,9 @@ function doSearch() {
   const sort = document.getElementById('sort').value;
 
   let filtered = allFilms.filter(f => {
+    // Genre filter
+    if (activeGenre && !f.genre.split(/[\/,]/).map(g => g.trim()).includes(activeGenre)) return false;
+    // Text search
     if (!q) return true;
     if (searchField === 'title') return f.title.toLowerCase().includes(q) || f.titleOrig.toLowerCase().includes(q);
     if (searchField === 'director') return f.directors.toLowerCase().includes(q);
