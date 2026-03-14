@@ -46,10 +46,10 @@
   /* ── HEADER ── */
   header {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(10,10,15,0.92);
-    backdrop-filter: blur(16px);
+    background: var(--bg);
     border-bottom: 1px solid var(--border);
-    padding: 12px 16px;
+    padding: 0 16px;
+    height: 52px;
     display: flex; align-items: center; gap: 12px;
   }
   .logo {
@@ -124,10 +124,10 @@
 
   /* ── SEARCH / FILTERS ── */
   #toolbar {
-    padding: 10px 16px;
+    padding: 8px 16px;
     display: flex; flex-direction: column; gap: 8px;
     background: var(--bg);
-    position: sticky; top: 103px; z-index: 90;
+    position: sticky; top: 98px; z-index: 90;
     border-bottom: 1px solid var(--border);
   }
   .filter-row {
@@ -420,9 +420,10 @@
   #mode-bar {
     background: var(--bg);
     border-bottom: 1px solid var(--border);
-    padding: 8px 16px;
+    padding: 6px 16px;
+    height: 46px;
     display: flex; align-items: center; justify-content: center;
-    position: sticky; top: 57px; z-index: 95;
+    position: sticky; top: 52px; z-index: 95;
   }
   .mode-switcher {
     display: flex;
@@ -568,6 +569,35 @@
     background: none; border: none; color: var(--muted);
     cursor: pointer; display: flex; align-items: center;
   }
+
+  /* ── SORT POPUP ── */
+  #sort-popup {
+    display: none;
+    position: fixed; inset: 0; z-index: 250;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    align-items: flex-end; justify-content: center;
+    padding-bottom: 0;
+  }
+  #sort-popup.open { display: flex; }
+  #sort-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px 18px 0 0;
+    width: 100%; max-width: 520px;
+    padding: 20px 16px 32px;
+    animation: slideUp .22s ease;
+  }
+  #sort-panel h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px; letter-spacing: 1px;
+    margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #sort-panel h3 button {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; display: flex; align-items: center;
+  }
 </style>
 </head>
 <body>
@@ -619,12 +649,10 @@
     <input id="search" type="text" placeholder="Cerca film, regista, attore..." oninput="doSearch()">
   </div>
   <div class="filter-row">
-    <select id="sort" onchange="doSearch()">
-      <option value="title">A-Z</option>
-      <option value="year_desc">Anno ↓</option>
-      <option value="year_asc">Anno ↑</option>
-      <option value="rating">Voto ↓</option>
-    </select>
+    <button class="btn secondary" onclick="openSortPopup()" id="btn-sort" style="padding:8px 12px;font-size:13px;gap:6px;display:inline-flex;align-items:center;flex:1">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+      <span id="btn-sort-label">A-Z</span>
+    </button>
     <button class="btn secondary" onclick="openGenrePopup()" id="btn-genre" style="padding:8px 12px;font-size:13px;gap:6px;display:inline-flex;align-items:center;flex:1">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
       <span id="btn-genre-label">Genere</span>
@@ -649,6 +677,14 @@
   <div id="year-panel">
     <h3>Filtra per anno <button onclick="closeYearPopup()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></h3>
     <div class="genre-grid" id="year-grid"></div>
+  </div>
+</div>
+
+<!-- SORT POPUP -->
+<div id="sort-popup" onclick="closeSortPopupIfOutside(event)">
+  <div id="sort-panel">
+    <h3>Ordina per <button onclick="closeSortPopup()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></h3>
+    <div class="genre-grid" id="sort-grid"></div>
   </div>
 </div>
 
@@ -750,9 +786,10 @@ async function switchMode(mode) {
   currentMode = mode;
   localStorage.setItem('current_mode', mode);
 
-  // Reset genre filter
+  // Reset filters
   activeGenre = null;
   activeYear = null;
+  activeSort = 'title';
   const btn = document.getElementById('btn-genre');
   if (btn) { btn.style.borderColor = ''; btn.style.color = ''; }
   const lbl = document.getElementById('btn-genre-label');
@@ -761,6 +798,10 @@ async function switchMode(mode) {
   if (btnY) { btnY.style.borderColor = ''; btnY.style.color = ''; }
   const lblY = document.getElementById('btn-year-label');
   if (lblY) lblY.textContent = 'Anno';
+  const btnS = document.getElementById('btn-sort');
+  if (btnS) { btnS.style.borderColor = ''; btnS.style.color = ''; }
+  const lblS = document.getElementById('btn-sort-label');
+  if (lblS) lblS.textContent = 'A-Z';
 
   // Restore target mode state
   DB = m().db;
@@ -1179,12 +1220,39 @@ function setYear(year) {
 }
 
 // ──────────────────────────────────────────────
+// SORT POPUP
+// ──────────────────────────────────────────────
+const SORT_OPTIONS = [
+  { value: 'title',     label: 'A-Z' },
+  { value: 'year_desc', label: 'Anno ↓' },
+  { value: 'year_asc',  label: 'Anno ↑' },
+  { value: 'rating',    label: 'Voto ↓' },
+];
+let activeSort = 'title';
+
+function openSortPopup() {
+  document.getElementById('sort-grid').innerHTML =
+    SORT_OPTIONS.map(o =>
+      `<span class="genre-chip ${activeSort === o.value ? 'active' : ''}" onclick="setSort('${o.value}','${o.label}')">${o.label}</span>`
+    ).join('');
+  document.getElementById('sort-popup').classList.add('open');
+}
+function closeSortPopup() { document.getElementById('sort-popup').classList.remove('open'); }
+function closeSortPopupIfOutside(e) { if (e.target === document.getElementById('sort-popup')) closeSortPopup(); }
+function setSort(value, label) {
+  activeSort = value;
+  document.getElementById('btn-sort-label').textContent = label;
+  closeSortPopup();
+  doSearch();
+}
+
+// ──────────────────────────────────────────────
 // SEARCH & FILTER
 // ──────────────────────────────────────────────
 function doSearch() {
   if (!allFilms.length) return;
   const q = document.getElementById('search').value.trim().toLowerCase();
-  const sort = document.getElementById('sort').value;
+  const sort = activeSort;
 
   let filtered = allFilms.filter(f => {
     // Genre filter
