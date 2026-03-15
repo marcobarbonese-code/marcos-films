@@ -172,12 +172,22 @@
     position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
     color: var(--muted); font-size: 14px; pointer-events: none;
   }
+  #search-clear {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); padding: 4px;
+    display: none; align-items: center; justify-content: center;
+    border-radius: 50%;
+    transition: color .15s;
+  }
+  #search-clear:hover { color: var(--text); }
+  #search-clear.visible { display: flex; }
   #search {
     width: 100%;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 9px 12px 9px 32px;
+    padding: 9px 32px 9px 32px;
     color: var(--text);
     font-size: 14px;
     font-family: 'DM Sans', sans-serif;
@@ -777,7 +787,8 @@
 <div id="toolbar">
   <div class="search-wrap">
     <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-    <input id="search" type="text" placeholder="Cerca film, regista, attore..." oninput="doSearch()" onblur="this.blur()">
+    <input id="search" type="text" placeholder="Cerca film, regista, attore..." oninput="doSearch(); toggleClearBtn()" onblur="this.blur()">
+    <button id="search-clear" onclick="clearSearch()" tabindex="-1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>
   <div class="filter-row">
     <button class="btn secondary" onclick="openSortPopup()" id="btn-sort" style="padding:8px 12px;font-size:13px;gap:6px;display:inline-flex;align-items:center;flex:1">
@@ -1406,6 +1417,19 @@ function setSort(value, label) {
   document.getElementById('btn-sort-label').textContent = label;
   closeSortPopup();
   doSearch();
+}
+
+function clearSearch() {
+  const s = document.getElementById('search');
+  s.value = '';
+  document.getElementById('search-clear').classList.remove('visible');
+  doSearch();
+  s.focus();
+}
+
+function toggleClearBtn() {
+  const s = document.getElementById('search');
+  document.getElementById('search-clear').classList.toggle('visible', s.value.length > 0);
 }
 
 // ──────────────────────────────────────────────
