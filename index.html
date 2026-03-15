@@ -1293,18 +1293,18 @@ function loadAffiches() {
 
 function loadFilms() {
   // Verifica colonne disponibili
-  let hasEntree = false;
+  let hasBA = false;
   try {
     const cols = DB.exec("PRAGMA table_info(films)");
     if (cols.length) {
       const names = cols[0].values.map(r => r[1]);
-      hasEntree = names.includes('EntreeType') && names.includes('EntreeSource');
+      hasBA = names.includes('BAChemin') && names.includes('BAType');
     }
   } catch(e) {}
 
-  const entreeFields = hasEntree ? ', EntreeType, EntreeSource' : '';
+  const baFields = hasBA ? ', BAChemin, BAType' : '';
   const res = DB.exec(`SELECT ID, TitreVF, TitreVO, Genre, Annee, Duree, Note, Synopsis,
-    Acteurs, Realisateurs, Support, Langues, SousTitres, Pays, Commentaires${entreeFields} FROM films`);
+    Acteurs, Realisateurs, Support, Langues, SousTitres, Pays, Commentaires${baFields} FROM films`);
   if (!res.length) { allFilms = []; renderGrid([]); return; }
   allFilms = res[0].values.map(r => ({
     id: r[0], title: r[1] || '', titleOrig: r[2] || '', genre: r[3] || '',
@@ -1312,7 +1312,7 @@ function loadFilms() {
     synopsis: r[7] || '', actors: r[8] || '', directors: r[9] || '',
     support: r[10] || '', languages: r[11] || '', subtitles: r[12] || '',
     country: r[13] || '', comments: r[14] || '',
-    trailer: hasEntree && /trailer/i.test(r[15] || '') ? (r[16] || '') : ''
+    trailer: hasBA ? (r[15] || '') : ''
   }));
   doSearch();
 }
