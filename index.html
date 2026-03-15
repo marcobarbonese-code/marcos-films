@@ -1282,14 +1282,14 @@ function loadAffiches() {
 
 function loadFilms() {
   const res = DB.exec(`SELECT ID, TitreVF, TitreVO, Genre, Annee, Duree, Note, Synopsis,
-    Acteurs, Realisateurs, Support, Langues, SousTitres, Pays, Commentaires FROM films`);
+    Acteurs, Realisateurs, Support, Langues, SousTitres, Pays, Commentaires, Trailer FROM films`);
   if (!res.length) { allFilms = []; renderGrid([]); return; }
   allFilms = res[0].values.map(r => ({
     id: r[0], title: r[1] || '', titleOrig: r[2] || '', genre: r[3] || '',
     year: r[4] || '', duration: r[5] || '', rating: r[6] || '',
     synopsis: r[7] || '', actors: r[8] || '', directors: r[9] || '',
     support: r[10] || '', languages: r[11] || '', subtitles: r[12] || '',
-    country: r[13] || '', comments: r[14] || ''
+    country: r[13] || '', comments: r[14] || '', trailer: r[15] || ''
   }));
   doSearch();
 }
@@ -1504,6 +1504,13 @@ function openFilm(id) {
         <div class="modal-section-title">Cast</div>
         <div class="modal-people">${actors.map(a => esc(a)).join(' · ')}</div>` : ''}
       ${f.comments ? buildCommentsSection(f.comments) : ''}
+      ${f.trailer ? `
+        <div style="margin-top:12px">
+          <a class="btn-trailer" href="${esc(f.trailer)}" target="_blank" rel="noopener">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Guarda il Trailer
+          </a>
+        </div>` : ''}
       <div class="modal-actions">
         <button class="btn" onclick="openEditModal(${id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Modifica</button>
         <button class="btn danger" onclick="deleteFilm(${id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Elimina</button>
@@ -1645,30 +1652,17 @@ function updateSaveBtn() {
 // POSTER GALLERY
 // ──────────────────────────────────────────────
 const URL_REGEX = /https?:\/\/[^\s,;|]+/gi;
-const TRAILER_REGEX = /youtube\.com|youtu\.be|vimeo\.com/i;
-const IMAGE_REGEX = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
 
 function buildCommentsSection(comments) {
   const allUrls = comments.match(URL_REGEX) || [];
-  const trailerUrls = allUrls.filter(u => TRAILER_REGEX.test(u));
-  const imageUrls   = allUrls.filter(u => !TRAILER_REGEX.test(u));
+  const imageUrls = allUrls;
   const text = comments.replace(URL_REGEX, '').replace(/[\s,;|]+/g, ' ').trim();
 
   let html = '';
 
   if (text) {
     html += `<div class="modal-section-title">Note personali</div>
-             <div class="modal-people" style="color:var(--muted);margin-bottom:${(trailerUrls.length || imageUrls.length) ? '12px' : '0'}">${esc(text)}</div>`;
-  }
-
-  if (trailerUrls.length) {
-    const trailerUrl = trailerUrls[0];
-    html += `<div style="margin-bottom:12px">
-      <a class="btn-trailer" href="${esc(trailerUrl)}" target="_blank" rel="noopener">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        Guarda il Trailer
-      </a>
-    </div>`;
+             <div class="modal-people" style="color:var(--muted);margin-bottom:${imageUrls.length ? '12px' : '0'}">${esc(text)}</div>`;
   }
 
   if (imageUrls.length) {
