@@ -1281,15 +1281,26 @@ function loadAffiches() {
 }
 
 function loadFilms() {
+  // Prima prova a capire quali colonne esistono
+  let hasTrailer = false;
+  try {
+    const cols = DB.exec("PRAGMA table_info(films)");
+    if (cols.length) {
+      hasTrailer = cols[0].values.some(r => r[1] === 'Trailer');
+    }
+  } catch(e) {}
+
+  const trailerField = hasTrailer ? ', Trailer' : '';
   const res = DB.exec(`SELECT ID, TitreVF, TitreVO, Genre, Annee, Duree, Note, Synopsis,
-    Acteurs, Realisateurs, Support, Langues, SousTitres, Pays, Commentaires, Trailer FROM films`);
+    Acteurs, Realisateurs, Support, Langues, SousTitres, Pays, Commentaires${trailerField} FROM films`);
   if (!res.length) { allFilms = []; renderGrid([]); return; }
   allFilms = res[0].values.map(r => ({
     id: r[0], title: r[1] || '', titleOrig: r[2] || '', genre: r[3] || '',
     year: r[4] || '', duration: r[5] || '', rating: r[6] || '',
     synopsis: r[7] || '', actors: r[8] || '', directors: r[9] || '',
     support: r[10] || '', languages: r[11] || '', subtitles: r[12] || '',
-    country: r[13] || '', comments: r[14] || '', trailer: r[15] || ''
+    country: r[13] || '', comments: r[14] || '',
+    trailer: hasTrailer ? (r[15] || '') : ''
   }));
   doSearch();
 }
