@@ -1292,25 +1292,42 @@ function loadAffiches() {
 function loadFilms() {
   // Verifica colonne disponibili
   let hasBA = false;
+  let hasVu = false;
+  let refCol = null;
   try {
     const cols = DB.exec("PRAGMA table_info(films)");
     if (cols.length) {
       const names = cols[0].values.map(r => r[1]);
       hasBA = names.includes('BAChemin') && names.includes('BAType');
+      hasVu = names.includes('Vu');
+      // Find "Riferimento" column — try common names
+      const candidates = ['Ref', 'Reference', 'Riferimento', 'Numero', 'NumRef', 'Rfr'];
+      refCol = candidates.find(c => names.includes(c)) || null;
     }
   } catch(e) {}
 
   const baFields = hasBA ? ', BAChemin, BAType' : '';
+  const vuField = hasVu ? ', Vu' : '';
+  const refField = refCol ? `, ${refCol}` : '';
   const res = DB.exec(`SELECT ID, TitreVF, TitreVO, Genre, Annee, Duree, Note, Synopsis,
-    Acteurs, Realisateurs, Support, Langues, SousTitres, Pays, Commentaires${baFields} FROM films`);
+    Acteurs, Realisateurs, Support, Langues, SousTitres, Pays, Commentaires${baFields}${vuField}${refField} FROM films`);
   if (!res.length) { allFilms = []; renderGrid([]); return; }
+
+  // Calculate column index offsets
+  let idx = 15;
+  const baIdx  = hasBA ? idx : -1; if (hasBA) idx += 2;
+  const vuIdx  = hasVu ? idx++ : -1;
+  const refIdx = refCol ? idx++ : -1;
+
   allFilms = res[0].values.map(r => ({
     id: r[0], title: r[1] || '', titleOrig: r[2] || '', genre: r[3] || '',
     year: r[4] || '', duration: r[5] || '', rating: r[6] || '',
     synopsis: r[7] || '', actors: r[8] || '', directors: r[9] || '',
     support: r[10] || '', languages: r[11] || '', subtitles: r[12] || '',
     country: r[13] || '', comments: r[14] || '',
-    trailer: hasBA ? (r[15] || '') : ''
+    trailer: hasBA ? (r[baIdx] || '') : '',
+    seen: hasVu ? !!r[vuIdx] : false,
+    ref: refIdx >= 0 ? (r[refIdx] || '') : ''
   }));
   doSearch();
 }
@@ -1486,13 +1503,15 @@ function renderGrid(films) {
       ? `<img class="film-poster" src="${affiches[f.id]}" alt="${esc(f.title)}" loading="lazy">`
       : `<div class="film-poster-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></div>`;
     const rating = f.rating ? `<div class="film-rating"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ${f.rating}</div>` : '';
+    const seenBadge = f.seen ? `<div style="position:absolute;top:8px;left:8px;background:rgba(94,203,130,0.85);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center" title="Visto"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>` : '';
     return `
       <div class="film-card" onclick="openFilm(${f.id})">
         ${poster}
         ${rating}
+        ${seenBadge}
         <div class="film-info">
           <div class="film-title">${esc(f.title)}</div>
-          <div class="film-meta">${esc(f.year)}${f.duration ? ' · ' + f.duration + 'min' : ''}</div>
+          <div class="film-meta">${f.ref ? `#${f.ref} · ` : ''}${esc(f.year)}${f.duration ? ' · ' + f.duration + 'min' : ''}</div>
         </div>
       </div>`;
   }).join('');
@@ -1531,7 +1550,8 @@ function openFilm(id) {
         ${f.trailer ? `<a class="btn-trailer" href="${esc(f.trailer)}" target="_blank" rel="noopener" title="Guarda il Trailer">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
         </a>` : ''}
-        <span style="font-size:13px;color:#fff;letter-spacing:.5px;font-weight:500">${id}</span>
+        ${f.ref ? `<span style="font-size:13px;color:var(--muted);letter-spacing:.5px">#${esc(String(f.ref))}</span>` : ''}
+        ${f.seen ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#5ecb82;background:rgba(94,203,130,0.12);border:1px solid rgba(94,203,130,0.3);border-radius:20px;padding:2px 8px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> visto</span>` : ''}
       </div>
       <div class="modal-tags">${tags}</div>
       ${f.genre ? `<div class="modal-tags" style="margin-bottom:12px">${genreTags}</div>` : ''}
@@ -1546,7 +1566,6 @@ function openFilm(id) {
       <div class="modal-actions">
         <button class="btn" onclick="openEditModal(${id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Modifica</button>
         <button class="btn danger" onclick="deleteFilm(${id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Elimina</button>
-        <button class="btn secondary" style="margin-left:auto" onclick="closeModal()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Chiudi</button>
       </div>
     </div>`;
 
@@ -1622,10 +1641,6 @@ function showForm(f) {
           <input class="form-input" id="f-support" value="${esc(v.support||'')}">
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Note personali</label>
-        <textarea class="form-textarea" id="f-comments" style="min-height:50px">${esc(v.comments||'')}</textarea>
-      </div>
       <div class="modal-actions">
         <button class="btn" onclick="saveFilm()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salva</button>
         ${f ? `<button class="btn secondary" onclick="openFilm(${f.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> Indietro</button>` : ''}
@@ -1693,8 +1708,7 @@ function buildCommentsSection(comments) {
   let html = '';
 
   if (text) {
-    html += `<div class="modal-section-title">Note personali</div>
-             <div class="modal-people" style="color:var(--muted);margin-bottom:${imageUrls.length ? '12px' : '0'}">${esc(text)}</div>`;
+    html += `<div class="modal-people" style="color:var(--muted);margin-bottom:${imageUrls.length ? '12px' : '0'}">${esc(text)}</div>`;
   }
 
   if (imageUrls.length) {
