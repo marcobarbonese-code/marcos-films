@@ -1338,7 +1338,7 @@ function loadFilms() {
     support: r[10] || '', languages: r[11] || '', subtitles: r[12] || '',
     country: r[13] || '', comments: r[14] || '',
     trailer: hasBA ? (r[baIdx] || '') : '',
-    seen: hasVu ? (r[vuIdx] == 1 || r[vuIdx] === true) : false,
+    seen: hasVu ? (r[vuIdx] === 'OUI' || r[vuIdx] == 1 || r[vuIdx] === true) : false,
     ref: refIdx >= 0 ? (r[refIdx] || '') : ''
   }));
   doSearch();
