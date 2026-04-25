@@ -794,6 +794,7 @@
     <span class="pill" onclick="setSearchField('director',this)">Regista</span>
     <span class="pill" onclick="setSearchField('actor',this)">Attore</span>
     <span class="pill" onclick="setSearchField('ref',this)">N°</span>
+    <span class="pill" id="pill-unseen" onclick="toggleUnseenFilter(this)" style="margin-left:auto">Non visti</span>
   </div>
   <div class="filter-row">
     <button class="btn secondary" onclick="openSortPopup()" id="btn-sort" style="padding:8px 12px;font-size:13px;gap:6px;display:inline-flex;align-items:center;flex:1">
@@ -1307,7 +1308,10 @@ function loadFilms() {
     if (cols.length) {
       const names = cols[0].values.map(r => r[1]);
       hasBA = names.includes('BAChemin') && names.includes('BAType');
-      hasVu = names.includes('Vu');
+      const vuCandidates = ['FilmVu', 'Vu', 'Vue', 'Seen', 'Visto'];
+      const vuColName = vuCandidates.find(c => names.includes(c)) || null;
+      hasVu = !!vuColName;
+      if (hasVu) window._vuCol = vuColName;
       // Find "Riferimento" column — try common names
       const candidates = ['Ref', 'Reference', 'Riferimento', 'Numero', 'NumRef', 'Rfr'];
       refCol = candidates.find(c => names.includes(c)) || null;
@@ -1315,7 +1319,7 @@ function loadFilms() {
   } catch(e) {}
 
   const baFields = hasBA ? ', BAChemin, BAType' : '';
-  const vuField = hasVu ? ', Vu' : '';
+  const vuField = hasVu ? `, ${window._vuCol}` : '';
   const refField = refCol ? `, ${refCol}` : '';
   const res = DB.exec(`SELECT ID, TitreVF, TitreVO, Genre, Annee, Duree, Note, Synopsis,
     Acteurs, Realisateurs, Support, Langues, SousTitres, Pays, Commentaires${baFields}${vuField}${refField} FROM films`);
@@ -1427,6 +1431,7 @@ const SORT_OPTIONS = [
   { value: 'rating',     label: 'Voto ↓' },
 ];
 let activeSort = 'ref_asc';
+let filterUnseen = false;
 
 function openSortPopup() {
   document.getElementById('sort-grid').innerHTML =
@@ -1446,8 +1451,14 @@ function setSort(value, label) {
 
 function setSearchField(field, el) {
   searchField = field;
-  document.querySelectorAll('.search-pills .pill').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.search-pills .pill:not(#pill-unseen)').forEach(p => p.classList.remove('active'));
   if (el) el.classList.add('active');
+  doSearch();
+}
+
+function toggleUnseenFilter(el) {
+  filterUnseen = !filterUnseen;
+  el.classList.toggle('active', filterUnseen);
   doSearch();
 }
 
@@ -1477,6 +1488,8 @@ function doSearch() {
     if (activeGenre && !f.genre.split(/[\/,]/).map(g => g.trim()).includes(activeGenre)) return false;
     // Year filter
     if (activeYear && String(f.year) !== activeYear) return false;
+    // Non visti filter
+    if (filterUnseen && f.seen) return false;
     // Text search
     if (!q) return true;
     if (searchField === 'title') return f.title.toLowerCase().includes(q) || f.titleOrig.toLowerCase().includes(q);
