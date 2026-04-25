@@ -788,10 +788,17 @@
     <input id="search" type="text" placeholder="Cerca film, regista, attore..." oninput="doSearch(); toggleClearBtn()" onblur="this.blur()">
     <button id="search-clear" onclick="clearSearch()" tabindex="-1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>
+  <div class="search-pills">
+    <span class="pill active" onclick="setSearchField('all',this)">Tutti</span>
+    <span class="pill" onclick="setSearchField('title',this)">Titolo</span>
+    <span class="pill" onclick="setSearchField('director',this)">Regista</span>
+    <span class="pill" onclick="setSearchField('actor',this)">Attore</span>
+    <span class="pill" onclick="setSearchField('ref',this)">N°</span>
+  </div>
   <div class="filter-row">
     <button class="btn secondary" onclick="openSortPopup()" id="btn-sort" style="padding:8px 12px;font-size:13px;gap:6px;display:inline-flex;align-items:center;flex:1">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
-      <span id="btn-sort-label">A-Z</span>
+      <span id="btn-sort-label">Rif. ↑</span>
     </button>
     <button class="btn secondary" onclick="openGenrePopup()" id="btn-genre" style="padding:8px 12px;font-size:13px;gap:6px;display:inline-flex;align-items:center;flex:1">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
@@ -954,7 +961,8 @@ async function switchMode(mode) {
   const btnS = document.getElementById('btn-sort');
   if (btnS) { btnS.style.borderColor = ''; btnS.style.color = ''; }
   const lblS = document.getElementById('btn-sort-label');
-  if (lblS) lblS.textContent = 'A-Z';
+  if (lblS) lblS.textContent = 'Rif. ↑';
+  activeSort = 'ref_asc';
 
   // Restore target mode state
   DB = m().db;
@@ -1326,7 +1334,7 @@ function loadFilms() {
     support: r[10] || '', languages: r[11] || '', subtitles: r[12] || '',
     country: r[13] || '', comments: r[14] || '',
     trailer: hasBA ? (r[baIdx] || '') : '',
-    seen: hasVu ? !!r[vuIdx] : false,
+    seen: hasVu ? (r[vuIdx] == 1 || r[vuIdx] === true) : false,
     ref: refIdx >= 0 ? (r[refIdx] || '') : ''
   }));
   doSearch();
@@ -1411,12 +1419,14 @@ function setYear(year) {
 // SORT POPUP
 // ──────────────────────────────────────────────
 const SORT_OPTIONS = [
-  { value: 'title',     label: 'A-Z' },
-  { value: 'year_desc', label: 'Anno ↓' },
-  { value: 'year_asc',  label: 'Anno ↑' },
-  { value: 'rating',    label: 'Voto ↓' },
+  { value: 'ref_asc',    label: 'Rif. ↑' },
+  { value: 'ref_desc',   label: 'Rif. ↓' },
+  { value: 'title',      label: 'A-Z' },
+  { value: 'year_desc',  label: 'Anno ↓' },
+  { value: 'year_asc',   label: 'Anno ↑' },
+  { value: 'rating',     label: 'Voto ↓' },
 ];
-let activeSort = 'title';
+let activeSort = 'ref_asc';
 
 function openSortPopup() {
   document.getElementById('sort-grid').innerHTML =
@@ -1431,6 +1441,13 @@ function setSort(value, label) {
   activeSort = value;
   document.getElementById('btn-sort-label').textContent = label;
   closeSortPopup();
+  doSearch();
+}
+
+function setSearchField(field, el) {
+  searchField = field;
+  document.querySelectorAll('.search-pills .pill').forEach(p => p.classList.remove('active'));
+  if (el) el.classList.add('active');
   doSearch();
 }
 
@@ -1466,13 +1483,16 @@ function doSearch() {
     if (searchField === 'director') return f.directors.toLowerCase().includes(q);
     if (searchField === 'actor') return f.actors.toLowerCase().includes(q);
     if (searchField === 'genre') return f.genre.toLowerCase().includes(q);
+    if (searchField === 'ref') return String(f.ref).includes(q);
     // all
     return f.title.toLowerCase().includes(q) || f.titleOrig.toLowerCase().includes(q)
       || f.directors.toLowerCase().includes(q) || f.actors.toLowerCase().includes(q)
-      || f.genre.toLowerCase().includes(q);
+      || f.genre.toLowerCase().includes(q) || String(f.ref).includes(q);
   });
 
   filtered.sort((a, b) => {
+    if (sort === 'ref_asc')  return (Number(a.ref)||0) - (Number(b.ref)||0);
+    if (sort === 'ref_desc') return (Number(b.ref)||0) - (Number(a.ref)||0);
     if (sort === 'title') return a.title.localeCompare(b.title);
     if (sort === 'year_desc') return (b.year||0) - (a.year||0);
     if (sort === 'year_asc') return (a.year||0) - (b.year||0);
@@ -1503,7 +1523,7 @@ function renderGrid(films) {
       ? `<img class="film-poster" src="${affiches[f.id]}" alt="${esc(f.title)}" loading="lazy">`
       : `<div class="film-poster-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></div>`;
     const rating = f.rating ? `<div class="film-rating"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ${f.rating}</div>` : '';
-    const seenBadge = f.seen ? `<div style="position:absolute;top:8px;left:8px;background:rgba(94,203,130,0.85);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center" title="Visto"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>` : '';
+    const seenBadge = '';
     return `
       <div class="film-card" onclick="openFilm(${f.id})">
         ${poster}
@@ -1511,7 +1531,7 @@ function renderGrid(films) {
         ${seenBadge}
         <div class="film-info">
           <div class="film-title">${esc(f.title)}</div>
-          <div class="film-meta">${f.ref ? `#${f.ref} · ` : ''}${esc(f.year)}${f.duration ? ' · ' + f.duration + 'min' : ''}</div>
+          <div class="film-meta">${f.ref ? `${f.ref} · ` : ''}${esc(f.year)}${f.duration ? ' · ' + f.duration + 'min' : ''}</div>
         </div>
       </div>`;
   }).join('');
@@ -1550,7 +1570,7 @@ function openFilm(id) {
         ${f.trailer ? `<a class="btn-trailer" href="${esc(f.trailer)}" target="_blank" rel="noopener" title="Guarda il Trailer">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
         </a>` : ''}
-        ${f.ref ? `<span style="font-size:13px;color:var(--muted);letter-spacing:.5px">#${esc(String(f.ref))}</span>` : ''}
+        ${f.ref ? `<span style="font-size:13px;color:var(--muted);letter-spacing:.5px">${esc(String(f.ref))}</span>` : ''}
         ${f.seen ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#5ecb82;background:rgba(94,203,130,0.12);border:1px solid rgba(94,203,130,0.3);border-radius:20px;padding:2px 8px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> visto</span>` : ''}
       </div>
       <div class="modal-tags">${tags}</div>
@@ -1708,7 +1728,7 @@ function buildCommentsSection(comments) {
   let html = '';
 
   if (text) {
-    html += `<div class="modal-people" style="color:var(--muted);margin-bottom:${imageUrls.length ? '12px' : '0'}">${esc(text)}</div>`;
+    // testo note nascosto — mostriamo solo poster/immagini
   }
 
   if (imageUrls.length) {
