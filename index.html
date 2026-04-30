@@ -1493,7 +1493,7 @@ function doSearch() {
     // Text search
     if (!q) return true;
     if (searchField === 'title') return f.title.toLowerCase().includes(q) || f.titleOrig.toLowerCase().includes(q);
-    if (searchField === 'director') return f.directors.toLowerCase().includes(q);
+    if (searchField === 'director') return f.directors.split(/[\r\n,]+/).some(d => d.trim().toLowerCase().includes(q));
     if (searchField === 'actor') return f.actors.toLowerCase().includes(q);
     if (searchField === 'genre') return f.genre.toLowerCase().includes(q);
     if (searchField === 'ref') return String(f.ref).includes(q);
@@ -1561,7 +1561,7 @@ function openFilm(id) {
     ? `<div class="modal-poster-wrap"><img id="modal-poster" src="${affiches[id]}" alt="${esc(f.title)}"><div class="modal-poster-overlay"></div></div>`
     : '';
 
-  const directors = f.directors.split(/[\r\n]+/).filter(Boolean);
+  const directors = f.directors.split(/[\r\n,]+/).map(d => d.trim()).filter(Boolean);
   const actors = f.actors.split(/[\r\n]+/).filter(Boolean);
 
   const tags = [
