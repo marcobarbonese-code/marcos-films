@@ -777,6 +777,7 @@
     <button class="btn secondary" id="btn-pick" onclick="dropboxPickFile()" style="background:var(--accent);color:#000;border-color:var(--accent)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg> Scegli file .data</button>
     <button class="btn secondary" onclick="saveToDropbox()" id="btn-save" style="display:none;gap:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="12" y1="13" x2="12" y2="19"/><polyline points="9 16 12 19 15 16"/></svg> Salva su Dropbox</button>
     <button class="btn danger" style="padding:7px 10px;font-size:12px" onclick="dropboxLogout()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Disconnetti</button>
+    <button class="btn secondary" style="padding:7px 10px;font-size:12px" onclick="forceSyncFromDropbox()" title="Forza riscaricamento dal cloud ignorando la cache"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.49"/></svg> Aggiorna</button>
   </div>
   <div id="sync-status"></div>
 </div>
@@ -881,6 +882,77 @@ let affiches = {};
 let searchField = 'all';
 let currentEditId = null;
 let unsavedChanges = false;
+
+// ──────────────────────────────────────────────
+// INDEXED DB CACHE
+// ──────────────────────────────────────────────
+const IDB_NAME = 'marcosfilms_cache';
+const IDB_VERSION = 1;
+const IDB_STORE = 'databases';
+
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE, { keyPath: 'mode' });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function getCachedDB(mode) {
+  try {
+    const idb = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = idb.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(mode);
+      req.onsuccess = e => resolve(e.target.result || null);
+      req.onerror = e => reject(e.target.error);
+    });
+  } catch(e) { return null; }
+}
+
+async function setCachedDB(mode, rev, data) {
+  try {
+    const idb = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = idb.transaction(IDB_STORE, 'readwrite');
+      const req = tx.objectStore(IDB_STORE).put({ mode, rev, data, ts: Date.now() });
+      req.onsuccess = () => resolve();
+      req.onerror = e => reject(e.target.error);
+    });
+  } catch(e) {}
+}
+
+async function clearCachedDB(mode) {
+  try {
+    const idb = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = idb.transaction(IDB_STORE, 'readwrite');
+      const req = tx.objectStore(IDB_STORE).delete(mode);
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+    });
+  } catch(e) {}
+}
+
+async function getDropboxRev(path, token) {
+  const res = await fetch('https://api.dropboxapi.com/2/files/get_metadata', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ path })
+  });
+  if (!res.ok) throw new Error('Impossibile leggere metadata Dropbox');
+  const meta = await res.json();
+  return meta.rev || null;
+}
 
 // Dual-mode state
 let currentMode = localStorage.getItem('current_mode') || 'films'; // 'films' | 'cartoons'
@@ -1029,6 +1101,7 @@ function dropboxLogin() {
 }
 
 function dropboxLogout() {
+  clearCachedDB(currentMode);
   m().token = null; m().path = null; m().db = null; m().films = []; m().affiches = {};
   localStorage.removeItem(`dbx_token_${currentMode}`);
   localStorage.removeItem(`dbx_path_${currentMode}`);
@@ -1166,12 +1239,33 @@ async function selectDropboxFile(path, name) {
 }
 
 // ──────────────────────────────────────────────
-// LOAD FILE FROM DROPBOX API
+// LOAD FILE FROM DROPBOX API (con cache IndexedDB)
 // ──────────────────────────────────────────────
 async function loadFileFromDropbox(path) {
-  setStatus('Download da Dropbox...', '');
-  setProgress(15);
+  setProgress(10);
   try {
+    // 1. Leggi il rev corrente su Dropbox
+    setStatus('Controllo aggiornamenti...', '');
+    const remoteRev = await getDropboxRev(path, dropboxToken());
+    setProgress(25);
+
+    // 2. Controlla cache locale
+    const cached = await getCachedDB(currentMode);
+    if (cached && cached.rev === remoteRev && cached.data) {
+      // Cache valida: carica subito senza download
+      setProgress(70);
+      loadDB(cached.data);
+      setStatus('✓ Caricato dalla cache locale', 'ok');
+      setProgress(100);
+      setTimeout(() => setProgress(0), 600);
+      document.getElementById('btn-save').style.display = 'inline-flex';
+      updateAuthUI();
+      return;
+    }
+
+    // 3. Cache assente o rev diverso: scarica da Dropbox
+    setStatus(cached ? 'DB aggiornato, riscarico...' : 'Download da Dropbox...', '');
+    setProgress(35);
     const res = await fetch('https://content.dropboxapi.com/2/files/download', {
       method: 'POST',
       headers: {
@@ -1183,10 +1277,15 @@ async function loadFileFromDropbox(path) {
       const err = await res.json();
       throw new Error(err.error_summary || 'Errore download');
     }
-    setProgress(65);
+    setProgress(70);
     const buf = await res.arrayBuffer();
-    setProgress(88);
-    loadDB(new Uint8Array(buf));
+    const data = new Uint8Array(buf);
+    setProgress(85);
+
+    // 4. Salva in cache
+    await setCachedDB(currentMode, remoteRev, data);
+
+    loadDB(data);
     setStatus('Database sincronizzato', 'ok');
     setProgress(100);
     setTimeout(() => setProgress(0), 800);
@@ -1195,9 +1294,27 @@ async function loadFileFromDropbox(path) {
   } catch(e) {
     setStatus('' + e.message, 'err');
     setProgress(0);
-    // Token might be expired
+    // Prova a caricare dalla cache anche in caso di errore rete
+    try {
+      const cached = await getCachedDB(currentMode);
+      if (cached && cached.data) {
+        loadDB(cached.data);
+        setStatus('Offline — caricato dalla cache locale', 'ok');
+        document.getElementById('btn-save').style.display = 'inline-flex';
+        updateAuthUI();
+        return;
+      }
+    } catch(e2) {}
+    // Token scaduto
     if (e.message.includes('expired') || e.message.includes('invalid')) dropboxLogout();
   }
+}
+
+// Forza riscaricamento ignorando la cache (bottone "Aggiorna")
+async function forceSyncFromDropbox() {
+  await clearCachedDB(currentMode);
+  const path = dropboxFilePath();
+  if (path) await loadFileFromDropbox(path);
 }
 
 // ──────────────────────────────────────────────
@@ -1230,10 +1347,18 @@ async function saveToDropbox() {
       body: blob
     });
 
+    const resJson = await res.json();
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error_summary || 'Upload fallito');
+      throw new Error(resJson.error_summary || 'Upload fallito');
     }
+
+    // Aggiorna il rev in cache con il nuovo valore restituito da Dropbox
+    try {
+      if (resJson.rev) {
+        const exported = DB.export();
+        await setCachedDB(currentMode, resJson.rev, new Uint8Array(exported));
+      }
+    } catch(e2) {}
 
     setProgress(100);
     setStatus('Salvato su Dropbox!', 'ok');
