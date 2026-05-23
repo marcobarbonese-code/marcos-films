@@ -1698,12 +1698,9 @@ function buildDirectorMap(films, label) {
   const map = {};
   films.forEach(f => {
     if (!f.directors) return;
-    // DEBUG: logga i codici carattere del campo regista per i Dardenne
-    if (f.directors.toLowerCase().includes('dardenne')) {
-      const codes = [...f.directors].map(c => c.charCodeAt(0));
-      console.log('DARDENNE RAW:', JSON.stringify(f.directors), 'CODES:', codes);
-    }
-    f.directors.split(/[\r\n,]+/).forEach(d => {
+    // Normalizza qualsiasi separatore (CR, LF, virgola) in virgola, poi splitta
+    const normalized = f.directors.replace(/[\r\n]/g, ',');
+    normalized.split(',').forEach(d => {
       const name = d.trim();
       if (!name) return;
       if (!map[name]) map[name] = { films: 0, cartoons: 0 };
