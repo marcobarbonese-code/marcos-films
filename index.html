@@ -1244,27 +1244,32 @@ async function selectDropboxFile(path, name) {
 async function loadFileFromDropbox(path) {
   setProgress(10);
   try {
-    // 1. Leggi il rev corrente su Dropbox
-    setStatus('Controllo aggiornamenti...', '');
-    const remoteRev = await getDropboxRev(path, dropboxToken());
-    setProgress(25);
+    // 1. Prova a leggere il rev remoto (non bloccante: se fallisce si scarica comunque)
+    let remoteRev = null;
+    try {
+      setStatus('Controllo aggiornamenti...', '');
+      remoteRev = await getDropboxRev(path, dropboxToken());
+      setProgress(25);
 
-    // 2. Controlla cache locale
-    const cached = await getCachedDB(currentMode);
-    if (cached && cached.rev === remoteRev && cached.data) {
-      // Cache valida: carica subito senza download
-      setProgress(70);
-      loadDB(cached.data);
-      setStatus('✓ Caricato dalla cache locale', 'ok');
-      setProgress(100);
-      setTimeout(() => setProgress(0), 600);
-      document.getElementById('btn-save').style.display = 'inline-flex';
-      updateAuthUI();
-      return;
+      // 2. Se abbiamo il rev, controlla la cache locale
+      const cached = await getCachedDB(currentMode);
+      if (cached && cached.rev === remoteRev && cached.data) {
+        setProgress(70);
+        loadDB(cached.data);
+        setStatus('✓ Caricato dalla cache locale', 'ok');
+        setProgress(100);
+        setTimeout(() => setProgress(0), 600);
+        document.getElementById('btn-save').style.display = 'inline-flex';
+        updateAuthUI();
+        return;
+      }
+    } catch(revErr) {
+      // getDropboxRev fallita: prosegui con download diretto
+      remoteRev = null;
     }
 
-    // 3. Cache assente o rev diverso: scarica da Dropbox
-    setStatus(cached ? 'DB aggiornato, riscarico...' : 'Download da Dropbox...', '');
+    // 3. Scarica da Dropbox
+    setStatus('Download da Dropbox...', '');
     setProgress(35);
     const res = await fetch('https://content.dropboxapi.com/2/files/download', {
       method: 'POST',
@@ -1274,16 +1279,20 @@ async function loadFileFromDropbox(path) {
       }
     });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error_summary || 'Errore download');
+      const errText = await res.text();
+      let errMsg = 'Errore download';
+      try { errMsg = JSON.parse(errText).error_summary || errMsg; } catch(e) {}
+      throw new Error(errMsg);
     }
     setProgress(70);
     const buf = await res.arrayBuffer();
     const data = new Uint8Array(buf);
     setProgress(85);
 
-    // 4. Salva in cache
-    await setCachedDB(currentMode, remoteRev, data);
+    // 4. Salva in cache (solo se abbiamo il rev)
+    if (remoteRev) {
+      await setCachedDB(currentMode, remoteRev, data);
+    }
 
     loadDB(data);
     setStatus('Database sincronizzato', 'ok');
@@ -1294,7 +1303,7 @@ async function loadFileFromDropbox(path) {
   } catch(e) {
     setStatus('' + e.message, 'err');
     setProgress(0);
-    // Prova a caricare dalla cache anche in caso di errore rete
+    // Prova a caricare dalla cache in caso di errore rete
     try {
       const cached = await getCachedDB(currentMode);
       if (cached && cached.data) {
@@ -1305,8 +1314,8 @@ async function loadFileFromDropbox(path) {
         return;
       }
     } catch(e2) {}
-    // Token scaduto
-    if (e.message.includes('expired') || e.message.includes('invalid')) dropboxLogout();
+    // Token scaduto/invalido
+    if (e.message.includes('expired') || e.message.includes('invalid_access_token')) dropboxLogout();
   }
 }
 
