@@ -1698,7 +1698,7 @@ function buildDirectorMap(films, label) {
   const map = {};
   films.forEach(f => {
     if (!f.directors) return;
-    f.directors.split(',').forEach(d => {
+    f.directors.split(/[\r\n,]+/).forEach(d => {
       const name = d.trim();
       if (!name) return;
       if (!map[name]) map[name] = { films: 0, cartoons: 0 };
