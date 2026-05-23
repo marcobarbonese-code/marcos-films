@@ -1698,6 +1698,11 @@ function buildDirectorMap(films, label) {
   const map = {};
   films.forEach(f => {
     if (!f.directors) return;
+    // DEBUG: logga i codici carattere del campo regista per i Dardenne
+    if (f.directors.toLowerCase().includes('dardenne')) {
+      const codes = [...f.directors].map(c => c.charCodeAt(0));
+      console.log('DARDENNE RAW:', JSON.stringify(f.directors), 'CODES:', codes);
+    }
     f.directors.split(/[\r\n,]+/).forEach(d => {
       const name = d.trim();
       if (!name) return;
