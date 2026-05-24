@@ -1735,14 +1735,12 @@ function setDirectorTab(tab, skipRender) {
 function renderDirectorList() {
   const query = (document.getElementById('director-search').value || '').toLowerCase().trim();
 
-  // Raccogli dati da entrambe le raccolte
-  const filmsData   = MODES.films.films   || (currentMode === 'films'    ? allFilms : []);
+  const filmsData    = MODES.films.films    || (currentMode === 'films'    ? allFilms : []);
   const cartoonsData = MODES.cartoons.films || (currentMode === 'cartoons' ? allFilms : []);
 
   const filmsMap    = buildDirectorMap(filmsData, 'films');
   const cartoonsMap = buildDirectorMap(cartoonsData, 'cartoons');
 
-  // Unifica
   const allNames = new Set([...Object.keys(filmsMap), ...Object.keys(cartoonsMap)]);
   let directors = [...allNames].map(name => ({
     name,
@@ -1751,14 +1749,10 @@ function renderDirectorList() {
     total:    (filmsMap[name]?.films || 0) + (cartoonsMap[name]?.cartoons || 0)
   }));
 
-  // Filtra per tab
   if (directorTab === 'films')    directors = directors.filter(d => d.films > 0);
   if (directorTab === 'cartoons') directors = directors.filter(d => d.cartoons > 0);
-
-  // Filtra per ricerca
   if (query) directors = directors.filter(d => d.name.toLowerCase().includes(query));
 
-  // Ordina per conteggio rilevante ↓, poi alfabetico
   directors.sort((a, b) => {
     const countA = directorTab === 'films' ? a.films : directorTab === 'cartoons' ? a.cartoons : a.total;
     const countB = directorTab === 'films' ? b.films : directorTab === 'cartoons' ? b.cartoons : b.total;
@@ -1773,11 +1767,31 @@ function renderDirectorList() {
     return;
   }
 
+  // Raggruppa per conteggio e assegna colore alternato per gruppo
+  const getCount = d => directorTab === 'films' ? d.films : directorTab === 'cartoons' ? d.cartoons : d.total;
+
+  // Costruisci mappa: conteggio → indice gruppo (0, 1, 2, ...)
+  const groupOrder = [];
+  directors.forEach(d => {
+    const c = getCount(d);
+    if (!groupOrder.includes(c)) groupOrder.push(c);
+  });
+
   list.innerHTML = directors.map((d, i) => {
-    const rank = i + 1;
-    const isTop = rank <= 3;
-    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+    const groupIdx = groupOrder.indexOf(getCount(d));
+    const bg = groupIdx % 2 === 0
+      ? 'background:rgba(255,255,255,0.04)'
+      : 'background:rgba(255,255,255,0.02)';
+
+    // Mostra la coppa solo al primo elemento del gruppo
+    const isFirstOfGroup = i === 0 || getCount(directors[i-1]) !== getCount(d);
     const nameEsc = d.name.replace(/'/g, "\\'");
+
+    let rankLabel = '';
+    if (isFirstOfGroup) {
+      const pos = groupOrder.indexOf(getCount(d)) + 1;
+      rankLabel = pos === 1 ? '🏆' : `${pos}°`;
+    }
 
     let badges = '';
     if (hasBothCollections && directorTab === 'all') {
@@ -1786,12 +1800,11 @@ function renderDirectorList() {
       if (d.films > 0 && d.cartoons > 0)
         badges += `<span class="director-badge total-badge">${d.total}</span>`;
     } else {
-      const count = directorTab === 'cartoons' ? d.cartoons : directorTab === 'films' ? d.films : d.total;
-      badges += `<span class="director-badge total-badge">${count}</span>`;
+      badges += `<span class="director-badge total-badge">${getCount(d)}</span>`;
     }
 
-    return `<div class="director-row" onclick="filterByDirectorAndClose('${nameEsc}')">
-      <span class="director-rank ${isTop ? 'top' : ''}">${medal}</span>
+    return `<div class="director-row" style="${bg}" onclick="filterByDirectorAndClose('${nameEsc}')">
+      <span class="director-rank${groupOrder.indexOf(getCount(d)) === 0 ? ' top' : ''}">${rankLabel}</span>
       <span class="director-name">${esc(d.name)}</span>
       <span class="director-badges">${badges}</span>
     </div>`;
