@@ -352,6 +352,85 @@
     color: var(--muted);
   }
   .tag.accent { background: rgba(232,197,71,0.12); border-color: rgba(232,197,71,0.3); color: var(--accent); }
+  .tag.accent.rating-tag {
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+    transition: background .15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tag.accent.rating-tag:hover { background: rgba(232,197,71,0.2); }
+  .rating-tag .rating-edit-icon { opacity: 0.5; }
+
+  /* ── RATING PICKER POPUP ── */
+  #rating-popup {
+    display: none;
+    position: fixed; inset: 0; z-index: 260;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    align-items: flex-end; justify-content: center;
+  }
+  #rating-popup.open { display: flex; }
+  #rating-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px 18px 0 0;
+    width: 100%; max-width: 520px;
+    padding: 20px 16px 36px;
+    animation: slideUp .22s ease;
+  }
+  #rating-panel h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 17px; letter-spacing: 1px;
+    margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #rating-panel h3 button {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+  }
+  .rating-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  .rating-chip {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 12px 4px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all .15s;
+    -webkit-tap-highlight-color: transparent;
+    gap: 4px;
+  }
+  .rating-chip:hover { border-color: var(--accent); background: rgba(232,197,71,0.08); }
+  .rating-chip.active {
+    border-color: var(--accent);
+    background: rgba(232,197,71,0.15);
+  }
+  .rating-chip .rating-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; color: var(--text); line-height: 1;
+  }
+  .rating-chip.active .rating-num { color: var(--accent); }
+  .rating-chip .rating-stars {
+    font-size: 9px; color: var(--muted); letter-spacing: 1px;
+  }
+  .rating-chip.active .rating-stars { color: var(--accent); }
+  .rating-chip-none {
+    grid-column: span 5;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    text-align: center;
+    font-size: 13px; color: var(--muted);
+    transition: all .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .rating-chip-none:hover { border-color: var(--red); color: var(--red); }
   .modal-synopsis {
     font-size: 13px;
     line-height: 1.6;
@@ -929,6 +1008,14 @@
   <div id="year-panel">
     <h3>Filtra per anno <button onclick="closeYearPopup()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></h3>
     <div class="genre-grid" id="year-grid"></div>
+  </div>
+</div>
+
+<!-- RATING PICKER POPUP -->
+<div id="rating-popup" onclick="closeRatingPopupIfOutside(event)">
+  <div id="rating-panel">
+    <h3>Voto <button onclick="closeRatingPopup()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></h3>
+    <div class="rating-grid" id="rating-grid"></div>
   </div>
 </div>
 
@@ -1958,19 +2045,14 @@ function openFilm(id) {
   const directors = f.directors.split(/[\r\n,]+/).map(d => d.trim()).filter(Boolean);
   const actors = f.actors.split(/[\r\n]+/).filter(Boolean);
 
-  const ratingOptions = ['', '1','2','3','4','5','6','7','8','9','10']
-    .map(v => `<option value="${v}" ${String(f.rating) === v ? 'selected' : ''}>${v || '—'}</option>`)
-    .join('');
-
+  const ratingLabel = f.rating ? `${f.rating}/10` : '— /10';
   const tags = [
     f.year && `<span class="tag">${esc(f.year)}</span>`,
     f.duration && `<span class="tag">${f.duration} min</span>`,
-    `<span class="tag accent" style="padding:0;overflow:hidden">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="margin-left:8px;flex-shrink:0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      <select id="rating-select" onchange="quickSaveRating(${id}, this.value)"
-        style="background:transparent;border:none;color:inherit;font:inherit;font-size:13px;font-weight:600;padding:4px 8px 4px 4px;cursor:pointer;outline:none;-webkit-appearance:auto">
-        ${ratingOptions}
-      </select>
+    `<span class="tag accent rating-tag" onclick="openRatingPopup(${id}, '${f.rating||''}')">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <span id="rating-display-${id}">${ratingLabel}</span>
+      <svg class="rating-edit-icon" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     </span>`,
     f.country && `<span class="tag">${esc(f.country)}</span>`,
     f.support && `<span class="tag">${esc(f.support)}</span>`,
@@ -2116,6 +2198,42 @@ function saveFilm() {
   } catch(e) {
     alert('Errore salvataggio: ' + e.message);
   }
+}
+
+// ──────────────────────────────────────────────
+// RATING PICKER POPUP
+// ──────────────────────────────────────────────
+let _ratingFilmId = null;
+
+function openRatingPopup(id, current) {
+  _ratingFilmId = id;
+  const stars = ['','★','★★','★★★','★★★★','★★★★★','★★★★★★','★★★★★★★','★★★★★★★★','★★★★★★★★★','★★★★★★★★★★'];
+  const grid = document.getElementById('rating-grid');
+  grid.innerHTML =
+    [1,2,3,4,5,6,7,8,9,10].map(v =>
+      `<div class="rating-chip ${String(current) === String(v) ? 'active' : ''}" onclick="pickRating(${v})">
+        <span class="rating-num">${v}</span>
+        <span class="rating-stars">${stars[v]}</span>
+      </div>`
+    ).join('') +
+    `<div class="rating-chip-none" onclick="pickRating('')">✕ Rimuovi voto</div>`;
+  document.getElementById('rating-popup').classList.add('open');
+}
+
+function closeRatingPopup() {
+  document.getElementById('rating-popup').classList.remove('open');
+}
+
+function closeRatingPopupIfOutside(e) {
+  if (e.target === document.getElementById('rating-popup')) closeRatingPopup();
+}
+
+function pickRating(value) {
+  closeRatingPopup();
+  quickSaveRating(_ratingFilmId, value);
+  // Aggiorna il display inline senza riaprire la scheda
+  const el = document.getElementById(`rating-display-${_ratingFilmId}`);
+  if (el) el.textContent = value ? `${value}/10` : '— /10';
 }
 
 function quickSaveRating(id, value) {
