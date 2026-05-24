@@ -2066,7 +2066,10 @@ function openFilm(id) {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
         </a>` : ''}
         ${f.ref ? `<span style="font-size:13px;color:var(--muted);letter-spacing:.5px">${esc(String(f.ref))}</span>` : ''}
-        ${f.seen ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#5ecb82;background:rgba(94,203,130,0.12);border:1px solid rgba(94,203,130,0.3);border-radius:20px;padding:2px 8px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> visto</span>` : ''}
+        ${window._vuCol ? `<span id="seen-badge-${id}" onclick="toggleSeen(${id})" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;border-radius:20px;padding:2px 8px;transition:all .2s;-webkit-tap-highlight-color:transparent;${f.seen ? 'color:#5ecb82;background:rgba(94,203,130,0.12);border:1px solid rgba(94,203,130,0.3)' : 'color:var(--muted);background:var(--surface);border:1px solid var(--border)'}">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span id="seen-label-${id}">${f.seen ? 'visto' : 'non visto'}</span>
+        </span>` : ''}
       </div>
       <div class="modal-tags">${tags}</div>
       ${f.genre ? `<div class="modal-tags" style="margin-bottom:12px">${genreTags}</div>` : ''}
@@ -2228,6 +2231,33 @@ function pickRating(value) {
   // Aggiorna il display inline senza riaprire la scheda
   const el = document.getElementById(`rating-display-${_ratingFilmId}`);
   if (el) el.textContent = value ? `${value}/10` : '— /10';
+}
+
+function toggleSeen(id) {
+  const f = allFilms.find(x => x.id === id);
+  if (!f || !window._vuCol) return;
+  const newVal = f.seen ? 0 : 1;
+  try {
+    DB.run(`UPDATE films SET ${window._vuCol}=?, DateHeureMAJ=? WHERE ID=?`,
+      [newVal, new Date().toISOString(), id]);
+    f.seen = !!newVal;
+    // Aggiorna badge inline senza chiudere la scheda
+    const badge = document.getElementById(`seen-badge-${id}`);
+    const label = document.getElementById(`seen-label-${id}`);
+    if (badge && label) {
+      if (f.seen) {
+        badge.style.cssText = 'cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;border-radius:20px;padding:2px 8px;transition:all .2s;-webkit-tap-highlight-color:transparent;color:#5ecb82;background:rgba(94,203,130,0.12);border:1px solid rgba(94,203,130,0.3)';
+        label.textContent = 'visto';
+      } else {
+        badge.style.cssText = 'cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;border-radius:20px;padding:2px 8px;transition:all .2s;-webkit-tap-highlight-color:transparent;color:var(--muted);background:var(--surface);border:1px solid var(--border)';
+        label.textContent = 'non visto';
+      }
+    }
+    loadFilms();
+    if (dropboxToken() && dropboxFilePath()) saveToDropbox();
+  } catch(e) {
+    alert('Errore: ' + e.message);
+  }
 }
 
 function quickSaveRating(id, value) {
