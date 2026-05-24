@@ -2093,21 +2093,25 @@ function saveFilm() {
     Annee: gv('f-year'), Duree: gv('f-duration'), Note: gv('f-rating'),
     Genre: gv('f-genre'), Realisateurs: gv('f-directors'), Acteurs: gv('f-actors'),
     Synopsis: gv('f-synopsis'), Pays: gv('f-country'), Support: gv('f-support'),
-    Commentaires: gv('f-comments'), DateHeureMAJ: new Date().toISOString()
+    DateHeureMAJ: new Date().toISOString()
   };
 
-  if (currentEditId) {
-    const sets = Object.entries(vals).map(([k]) => `${k}=?`).join(',');
-    DB.run(`UPDATE films SET ${sets} WHERE ID=?`, [...Object.values(vals), currentEditId]);
-  } else {
-    const keys = Object.keys(vals).join(',');
-    const placeholders = Object.keys(vals).map(() => '?').join(',');
-    DB.run(`INSERT INTO films (${keys}) VALUES (${placeholders})`, Object.values(vals));
+  try {
+    if (currentEditId) {
+      const sets = Object.entries(vals).map(([k]) => `${k}=?`).join(',');
+      DB.run(`UPDATE films SET ${sets} WHERE ID=?`, [...Object.values(vals), currentEditId]);
+    } else {
+      const keys = Object.keys(vals).join(',');
+      const placeholders = Object.keys(vals).map(() => '?').join(',');
+      DB.run(`INSERT INTO films (${keys}) VALUES (${placeholders})`, Object.values(vals));
+    }
+    unsavedChanges = true;
+    updateSaveBtn();
+    loadFilms();
+    closeModal();
+  } catch(e) {
+    alert('Errore salvataggio: ' + e.message);
   }
-  unsavedChanges = true;
-  updateSaveBtn();
-  loadFilms();
-  closeModal();
 }
 
 function deleteFilm(id) {
