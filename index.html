@@ -394,15 +394,14 @@
     gap: 8px;
   }
   .rating-chip {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 12px 4px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 14px 4px;
     border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--surface);
     cursor: pointer;
     transition: all .15s;
     -webkit-tap-highlight-color: transparent;
-    gap: 4px;
   }
   .rating-chip:hover { border-color: var(--accent); background: rgba(232,197,71,0.08); }
   .rating-chip.active {
@@ -411,13 +410,10 @@
   }
   .rating-chip .rating-num {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px; color: var(--text); line-height: 1;
+    font-size: 24px; line-height: 1;
+    color: var(--text);
   }
   .rating-chip.active .rating-num { color: var(--accent); }
-  .rating-chip .rating-stars {
-    font-size: 9px; color: var(--muted); letter-spacing: 1px;
-  }
-  .rating-chip.active .rating-stars { color: var(--accent); }
   .rating-chip-none {
     grid-column: span 5;
     padding: 10px;
@@ -2207,13 +2203,11 @@ let _ratingFilmId = null;
 
 function openRatingPopup(id, current) {
   _ratingFilmId = id;
-  const stars = ['','★','★★','★★★','★★★★','★★★★★','★★★★★★','★★★★★★★','★★★★★★★★','★★★★★★★★★','★★★★★★★★★★'];
   const grid = document.getElementById('rating-grid');
   grid.innerHTML =
     [1,2,3,4,5,6,7,8,9,10].map(v =>
       `<div class="rating-chip ${String(current) === String(v) ? 'active' : ''}" onclick="pickRating(${v})">
         <span class="rating-num">${v}</span>
-        <span class="rating-stars">${stars[v]}</span>
       </div>`
     ).join('') +
     `<div class="rating-chip-none" onclick="pickRating('')">✕ Rimuovi voto</div>`;
