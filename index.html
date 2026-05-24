@@ -1081,23 +1081,23 @@ async function getDropboxRev(path, token) {
 // Dual-mode state
 let currentMode = localStorage.getItem('current_mode') || 'films'; // 'films' | 'cartoons'
 
+// ──────────────────────────────────────────────
+// DROPBOX — TOKEN PERMANENTE
+// ──────────────────────────────────────────────
+const DBX_TOKEN = 'sl.u.AGh9LoQUTzli9pbWW3Ny_9F57Ac6-nqOsO6SdHEFQDs_L43Uj79mtjdsqMdKK4wNHANTSHCPrLR4sxVM6Dd7C5dQOxZ8ChzgsP9xVcU5-l2u0Ee9yNcQzY1nSzaocz_HczsCRhB0Vrh0cbz6KuD_2sd_Dt1X_xKTOC5BQUN5bqjqzExTQhESC-c5ZprfLPoVoHRrwZ1Ntd6rjX4km5yKTNxw3186WuiWim3r-6IvjHjIYoPTlbiRK15rbGMQMTeIjXzIfn-qgAcsnqd6F8hUm4SZcjosahwH43uzimyWyvtc87KzBl1Kh10y0Fwpd1A5Bk2wbQrL_6eGsFahlSsKkQ8G_WGXpDgb61Fv1K2R3EmxK1gobsyAsO7bkVD0mEgZM3AXBpZp7XX1h6YV5-ecXkyDhoHVUUixro6lW8O8rul75SxnyIy_IucSJqh4yHy0Dg_jnoHHXuGmo5mp6H6hcIwWbtWQLzyHBFZEo4oZZBs7OSr1MJHe4mP2Q_zjFQxFLRwi06FgkKNLVGSxJHnkBQQKHuhmQlZyrVIq7lJCnzUuHvfdJ9Nxf6RX_aKAaWqigFBzVFbpCyO0-EKivvhZXbEjMdWp93sNGrtFQ1kkCrH9d1_K1J09ExdaNC5pwv7rhtc5fzmr0SXt4gXjmmkDKZLTZBEOVOigiehzJrij9Q90Sgg2d2zw98r7FzPCgj3fZcQ7xzOryiBNtgRUe4LqL6S_E84oyEmvfHbQSRA1QvOLQ1f4BNlOdD4_wvRRA2tx2wJfxXHzAHC2OGGs5i-vmJpr6xZD3PqPd4n5XqUNT0MI4i65IZM9JbThoQs5-TigGr4Kx-4zBBd9aPT9Gk4c5zcGYmWhnPfHoBOrGK87VLx-F6qOrRYcYHtjbw3oMWrW_C85xpSIvYWGVUTs36R1uKxJNppEjbe7FyDqkFLzvqftCxaV_Z9dGQtCSc-8UeXKiq8ts_f_QhlVCasxjEkcYQ0NpjIOXXwgHfqVrz0yXHJ-uvTTBi6DBdleidbSSSNpOUjzPCiw91Z9WDQYtq1F_rGEltHjk0bccnjz5vvs8BOk3r3A53eLP_J2PhUzoM8WJ9D9rPwaZexwYUJFvp7iIJBpS4otDoHqzE-KIQzqZUe2OOZxeLbepMhSeHGSj5Kuav_hWAnCxMzHwr4UgeBn91APa0VIaPol9mrFX3noK6MwCa1RpQAW4zLvKTaY1ufxqVLJ3S-SCbxZT-nEy2ojZA8Z7BYzhj1CoRGSRMyAk0YeKWFKY8gKhG-ONBdDACUsV5i2Mio168rVGhBfQIoS9TTnPl54eUqZ9ndvY0evp86evA';
+
 // Per-mode stored credentials
 const MODES = {
-  films:    { token: null, path: null, db: null, films: [], affiches: {} },
-  cartoons: { token: null, path: null, db: null, films: [], affiches: {} }
+  films:    { token: DBX_TOKEN, path: null, db: null, films: [], affiches: {} },
+  cartoons: { token: DBX_TOKEN, path: null, db: null, films: [], affiches: {} }
 };
-MODES.films.token    = localStorage.getItem('dbx_token_films') || null;
-MODES.films.path     = localStorage.getItem('dbx_path_films')  || null;
-MODES.cartoons.token = localStorage.getItem('dbx_token_cartoons') || null;
-MODES.cartoons.path  = localStorage.getItem('dbx_path_cartoons')  || null;
+MODES.films.path    = localStorage.getItem('dbx_path_films')    || null;
+MODES.cartoons.path = localStorage.getItem('dbx_path_cartoons') || null;
 
 // Active mode shortcut helpers
 function m() { return MODES[currentMode]; }
-function dropboxToken() { return m().token; }
+function dropboxToken() { return DBX_TOKEN; }
 function dropboxFilePath() { return m().path; }
-
-const DBX_APP_KEY = 'pef9xz4yiaywon0';
-const DBX_REDIRECT = location.href.split('?')[0].split('#')[0];
 
 // ──────────────────────────────────────────────
 // INIT
@@ -1105,23 +1105,11 @@ const DBX_REDIRECT = location.href.split('?')[0].split('#')[0];
 async function init() {
   SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}` });
 
-  // Handle OAuth callback (token in URL hash) — includes which mode triggered it
-  const hash = new URLSearchParams(location.hash.replace('#',''));
-  const accessToken = hash.get('access_token');
-  const oauthMode = hash.get('state') || 'films'; // we pass mode in state param
-  if (accessToken) {
-    MODES[oauthMode].token = accessToken;
-    localStorage.setItem(`dbx_token_${oauthMode}`, accessToken);
-    currentMode = oauthMode;
-    localStorage.setItem('current_mode', currentMode);
-    history.replaceState(null, '', location.pathname);
-  }
-
   applyModeUI();
   updateAuthUI();
 
-  // Auto-load file if already authenticated and path saved
-  if (dropboxToken() && dropboxFilePath()) {
+  // Auto-load file if path saved
+  if (dropboxFilePath()) {
     document.getElementById('sync-bar').classList.add('hidden');
     await loadFileFromDropbox(dropboxFilePath());
   }
@@ -1227,13 +1215,12 @@ function dropboxLogin() {
 function dropboxLogout() {
   clearCachedDB(currentMode);
   localStorage.removeItem(`dbx_rev_${currentMode}`);
-  m().token = null; m().path = null; m().db = null; m().films = []; m().affiches = {};
-  localStorage.removeItem(`dbx_token_${currentMode}`);
+  m().path = null; m().db = null; m().films = []; m().affiches = {};
   localStorage.removeItem(`dbx_path_${currentMode}`);
   DB = null; allFilms = []; affiches = {};
   document.getElementById('grid').innerHTML = '';
   document.getElementById('loading').style.display = 'flex';
-  document.getElementById('loading').querySelector('p').textContent = 'Connetti Dropbox per caricare il database';
+  document.getElementById('loading').querySelector('p').textContent = 'Seleziona il file database';
   document.getElementById('fab').classList.add('hidden');
   document.getElementById('btn-save').style.display = 'none';
   updateAuthUI();
@@ -1241,27 +1228,22 @@ function dropboxLogout() {
 }
 
 async function updateAuthUI() {
-  if (dropboxToken()) {
-    // Get user info
-    try {
-      const res = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${dropboxToken()}`, 'Content-Type': 'application/json' },
-        body: 'null'
-      });
-      if (res.ok) {
-        const u = await res.json();
-        document.getElementById('dropbox-user').textContent = `${u.name.display_name}`;
-      }
-    } catch(e) {}
-    document.getElementById('auth-section').style.display = 'none';
-    document.getElementById('dropbox-section').style.display = 'flex';
-    if (dropboxFilePath()) {
-      document.getElementById('btn-save').style.display = 'inline-flex';
+  // Token sempre valido — mostra sempre la sezione connessa
+  document.getElementById('auth-section').style.display = 'none';
+  document.getElementById('dropbox-section').style.display = 'flex';
+  try {
+    const res = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${DBX_TOKEN}`, 'Content-Type': 'application/json' },
+      body: 'null'
+    });
+    if (res.ok) {
+      const u = await res.json();
+      document.getElementById('dropbox-user').textContent = u.name.display_name;
     }
-  } else {
-    document.getElementById('auth-section').style.display = 'flex';
-    document.getElementById('dropbox-section').style.display = 'none';
+  } catch(e) {}
+  if (dropboxFilePath()) {
+    document.getElementById('btn-save').style.display = 'inline-flex';
   }
 }
 
@@ -1449,7 +1431,9 @@ async function loadFileFromDropbox(path) {
           return;
         }
       } catch(e2) {}
-      if (e.message.includes('expired') || e.message.includes('invalid_access_token')) dropboxLogout();
+      if (e.message.includes('expired') || e.message.includes('invalid_access_token')) {
+        setStatus('Token non valido — aggiorna il file HTML con un nuovo token', 'err');
+      }
     }
   }
 }
