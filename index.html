@@ -1958,10 +1958,20 @@ function openFilm(id) {
   const directors = f.directors.split(/[\r\n,]+/).map(d => d.trim()).filter(Boolean);
   const actors = f.actors.split(/[\r\n]+/).filter(Boolean);
 
+  const ratingOptions = ['', '1','2','3','4','5','6','7','8','9','10']
+    .map(v => `<option value="${v}" ${String(f.rating) === v ? 'selected' : ''}>${v || '—'}</option>`)
+    .join('');
+
   const tags = [
     f.year && `<span class="tag">${esc(f.year)}</span>`,
     f.duration && `<span class="tag">${f.duration} min</span>`,
-    f.rating && `<span class="tag accent"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ${f.rating}/10</span>`,
+    `<span class="tag accent" style="padding:0;overflow:hidden">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="margin-left:8px;flex-shrink:0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <select id="rating-select" onchange="quickSaveRating(${id}, this.value)"
+        style="background:transparent;border:none;color:inherit;font:inherit;font-size:13px;font-weight:600;padding:4px 8px 4px 4px;cursor:pointer;outline:none;-webkit-appearance:auto">
+        ${ratingOptions}
+      </select>
+    </span>`,
     f.country && `<span class="tag">${esc(f.country)}</span>`,
     f.support && `<span class="tag">${esc(f.support)}</span>`,
   ].filter(Boolean).join('');
@@ -2105,6 +2115,19 @@ function saveFilm() {
     }
   } catch(e) {
     alert('Errore salvataggio: ' + e.message);
+  }
+}
+
+function quickSaveRating(id, value) {
+  try {
+    DB.run('UPDATE films SET Note=?, DateHeureMAJ=? WHERE ID=?',
+      [value, new Date().toISOString(), id]);
+    const f = allFilms.find(x => x.id === id);
+    if (f) f.rating = value;
+    loadFilms();
+    if (dropboxToken() && dropboxFilePath()) saveToDropbox();
+  } catch(e) {
+    alert('Errore salvataggio voto: ' + e.message);
   }
 }
 
