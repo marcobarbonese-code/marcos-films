@@ -879,6 +879,84 @@
   }
   .director-tab.active { background: var(--accent); border-color: var(--accent); color: #000; }
 
+  /* ── CAROUSEL NON VISTI ── */
+  #unseen-carousel-wrap {
+    display: none;
+    padding: 14px 0 6px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  #unseen-carousel-wrap.visible { display: block; }
+  .carousel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px 10px;
+  }
+  .carousel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .carousel-count {
+    background: var(--accent);
+    color: #000;
+    border-radius: 20px;
+    padding: 1px 7px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  #carousel-track-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 16px;
+    scroll-snap-type: x mandatory;
+  }
+  #carousel-track-wrap::-webkit-scrollbar { display: none; }
+  #carousel-track {
+    display: flex;
+    gap: 10px;
+    width: max-content;
+  }
+  .carousel-card {
+    width: 90px;
+    flex-shrink: 0;
+    cursor: pointer;
+    scroll-snap-align: start;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .carousel-card img,
+  .carousel-card .carousel-placeholder {
+    width: 90px;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    border-radius: 8px;
+    background: var(--surface);
+    display: block;
+    border: 1px solid var(--border);
+    transition: border-color .15s, transform .15s;
+  }
+  .carousel-card:hover img,
+  .carousel-card:hover .carousel-placeholder {
+    border-color: var(--accent);
+    transform: scale(1.04);
+  }
+  .carousel-placeholder {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--border);
+  }
+  .carousel-card-title {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 5px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
+  }
+
   /* ── SORT POPUP ── */
   #sort-popup {
     display: none;
@@ -1050,6 +1128,21 @@
     <div class="spinner"></div>
     <p>Carica il database dal link Dropbox o da file locale</p>
   </div>
+
+  <!-- CAROUSEL NON VISTI -->
+  <div id="unseen-carousel-wrap">
+    <div class="carousel-header">
+      <div class="carousel-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Da vedere
+        <span class="carousel-count" id="carousel-count">0</span>
+      </div>
+    </div>
+    <div id="carousel-track-wrap">
+      <div id="carousel-track"></div>
+    </div>
+  </div>
+
   <div id="empty"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></div><p>Nessun film trovato</p></div>
   <div id="grid"></div>
 </main>
@@ -1936,6 +2029,11 @@ function setSearchField(field, el) {
 function toggleUnseenFilter(el) {
   filterUnseen = !filterUnseen;
   el.classList.toggle('active', filterUnseen);
+  // Hide carousel when "Non visti" filter is active
+  const carouselWrap = document.getElementById('unseen-carousel-wrap');
+  if (filterUnseen) {
+    carouselWrap.classList.remove('visible');
+  }
   doSearch();
 }
 
@@ -1995,11 +2093,44 @@ function doSearch() {
 }
 
 // ──────────────────────────────────────────────
+// CAROUSEL NON VISTI
+// ──────────────────────────────────────────────
+function renderCarousel() {
+  const wrap = document.getElementById('unseen-carousel-wrap');
+  const track = document.getElementById('carousel-track');
+  const countEl = document.getElementById('carousel-count');
+
+  // Show carousel only when not in filterUnseen mode and there are unseen films
+  const unseen = allFilms.filter(f => !f.seen);
+
+  if (filterUnseen || unseen.length === 0) {
+    wrap.classList.remove('visible');
+    return;
+  }
+
+  countEl.textContent = unseen.length;
+
+  track.innerHTML = unseen.map(f => {
+    const img = affiches[f.id]
+      ? `<img src="${affiches[f.id]}" alt="${esc(f.title)}" loading="lazy">`
+      : `<div class="carousel-placeholder"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg></div>`;
+    return `<div class="carousel-card" onclick="openFilm(${f.id})">
+      ${img}
+      <div class="carousel-card-title">${esc(f.title)}</div>
+    </div>`;
+  }).join('');
+
+  wrap.classList.add('visible');
+}
+
+// ──────────────────────────────────────────────
 // RENDER GRID
 // ──────────────────────────────────────────────
 function renderGrid(films) {
   const grid = document.getElementById('grid');
   const empty = document.getElementById('empty');
+
+  renderCarousel();
 
   if (!films.length) {
     grid.innerHTML = '';
