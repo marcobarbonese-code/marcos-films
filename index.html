@@ -2344,9 +2344,10 @@ function checkPassword() {
   const val = input.value.trim();
   const correct = 'Keaton';
   if (val.toLowerCase() === correct.toLowerCase()) {
-    closePasswordPopup();
-    if (_passwordCallback) _passwordCallback();
+    const cb = _passwordCallback;
     _passwordCallback = null;
+    document.getElementById('password-popup').classList.remove('open');
+    if (cb) cb();
   } else {
     input.classList.remove('error');
     void input.offsetWidth; // reflow for re-trigger animation
