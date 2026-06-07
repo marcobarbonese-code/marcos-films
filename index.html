@@ -2538,6 +2538,7 @@ function toggleSeen(id) {
         label.textContent = 'non visto';
       }
     }
+    loadFilms();
     if (dropboxToken() && dropboxFilePath()) saveToDropbox();
   } catch(e) {
     alert('Errore: ' + e.message);
@@ -2550,6 +2551,7 @@ function quickSaveRating(id, value) {
       [value, new Date().toISOString(), id]);
     const f = allFilms.find(x => x.id === id);
     if (f) f.rating = value;
+    loadFilms();
     if (dropboxToken() && dropboxFilePath()) saveToDropbox();
   } catch(e) {
     alert('Errore salvataggio voto: ' + e.message);
