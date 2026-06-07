@@ -2319,9 +2319,11 @@ function openFilm(id) {
 // EDIT MODAL
 // ──────────────────────────────────────────────
 function openEditModal(id) {
-  const f = allFilms.find(x => x.id === id);
-  currentEditId = id;
-  showForm(f);
+  requestPassword(() => {
+    const f = allFilms.find(x => x.id === id);
+    currentEditId = id;
+    showForm(f);
+  });
 }
 
 // ──────────────────────────────────────────────
@@ -2506,11 +2508,24 @@ function pickRating(value) {
 function toggleSeen(id) {
   const f = allFilms.find(x => x.id === id);
   if (!f || !window._vuCol) return;
-  const newVal = f.seen ? 0 : 1;
+
+  // Leggi il valore attuale direttamente dal DB per capire il formato usato
+  let currentRaw = null;
+  try {
+    const res = DB.exec(`SELECT ${window._vuCol} FROM films WHERE ID=?`, [id]);
+    if (res.length && res[0].values.length) currentRaw = res[0].values[0][0];
+  } catch(e) {}
+
+  // Determina il formato: se il DB usa stringhe 'OUI'/'NON', continua così; altrimenti usa 0/1
+  const usesOui = (currentRaw === 'OUI' || currentRaw === 'NON');
+  const newVal = f.seen
+    ? (usesOui ? 'NON' : 0)
+    : (usesOui ? 'OUI' : 1);
+
   try {
     DB.run(`UPDATE films SET ${window._vuCol}=?, DateHeureMAJ=? WHERE ID=?`,
       [newVal, new Date().toISOString(), id]);
-    f.seen = !!newVal;
+    f.seen = !f.seen;
     // Aggiorna badge inline senza chiudere la scheda
     const badge = document.getElementById(`seen-badge-${id}`);
     const label = document.getElementById(`seen-label-${id}`);
@@ -2523,7 +2538,6 @@ function toggleSeen(id) {
         label.textContent = 'non visto';
       }
     }
-    loadFilms();
     if (dropboxToken() && dropboxFilePath()) saveToDropbox();
   } catch(e) {
     alert('Errore: ' + e.message);
@@ -2536,7 +2550,6 @@ function quickSaveRating(id, value) {
       [value, new Date().toISOString(), id]);
     const f = allFilms.find(x => x.id === id);
     if (f) f.rating = value;
-    loadFilms();
     if (dropboxToken() && dropboxFilePath()) saveToDropbox();
   } catch(e) {
     alert('Errore salvataggio voto: ' + e.message);
@@ -2544,16 +2557,16 @@ function quickSaveRating(id, value) {
 }
 
 function deleteFilm(id) {
-  if (!confirm('Eliminare questo film?')) return;
-  DB.run('DELETE FROM films WHERE ID=?', [id]);
-  DB.run('DELETE FROM affiches WHERE IDFilm=?', [id]);
-  unsavedChanges = true;
-  updateSaveBtn();
-  loadFilms();
-  closeModal();
-  if (dropboxToken() && dropboxFilePath()) {
-    saveToDropbox();
-  }
+  requestPassword(() => {
+    if (!confirm('Eliminare questo film?')) return;
+    DB.run('DELETE FROM films WHERE ID=?', [id]);
+    DB.run('DELETE FROM affiches WHERE IDFilm=?', [id]);
+    unsavedChanges = true;
+    updateSaveBtn();
+    loadFilms();
+    closeModal();
+    if (dropboxToken() && dropboxFilePath()) saveToDropbox();
+  });
 }
 
 function updateSaveBtn() {
