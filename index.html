@@ -1683,52 +1683,7 @@ function applyModeUI() {
   document.getElementById('count').textContent = allFilms.length;
 }
 
-// ──────────────────────────────────────────────
-// DROPBOX AUTH
-// ──────────────────────────────────────────────
-function dropboxLogin() {
-  const authUrl = `https://www.dropbox.com/oauth2/authorize`
-    + `?client_id=${DBX_APP_KEY}`
-    + `&response_type=token`
-    + `&redirect_uri=${encodeURIComponent(DBX_REDIRECT)}`
-    + `&state=${currentMode}`;
-  location.href = authUrl;
-}
 
-function dropboxLogout() {
-  clearCachedDB(currentMode);
-  localStorage.removeItem(`dbx_rev_${currentMode}`);
-  m().path = null; m().db = null; m().films = []; m().affiches = {};
-  localStorage.removeItem(`dbx_path_${currentMode}`);
-  DB = null; allFilms = []; affiches = {};
-  document.getElementById('grid').innerHTML = '';
-  document.getElementById('loading').style.display = 'flex';
-  document.getElementById('loading').querySelector('p').textContent = 'Seleziona il file database';
-  document.getElementById('fab').classList.add('hidden');
-  document.getElementById('btn-save').style.display = 'none';
-  updateAuthUI();
-  document.getElementById('sync-bar').classList.remove('hidden');
-}
-
-async function updateAuthUI() {
-  // Token sempre valido — mostra sempre la sezione connessa
-  document.getElementById('auth-section').style.display = 'none';
-  document.getElementById('dropbox-section').style.display = 'flex';
-  try {
-    const res = await dbxFetch('https://api.dropboxapi.com/2/users/get_current_account', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: 'null'
-    });
-    if (res.ok) {
-      const u = await res.json();
-      document.getElementById('dropbox-user').textContent = u.name.display_name;
-    }
-  } catch(e) {}
-  if (dropboxFilePath()) {
-    document.getElementById('btn-save').style.display = 'inline-flex';
-  }
-}
 
 // ──────────────────────────────────────────────
 // DROPBOX FILE BROWSER (via API, no Chooser SDK)
