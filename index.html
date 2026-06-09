@@ -1893,6 +1893,7 @@ async function saveToDropbox() {
   setStatus('Salvataggio su Dropbox...', '');
   setProgress(20);
   document.getElementById('btn-save').disabled = true;
+  _dropboxSyncing = true;
 
   try {
     const data = DB.export();
@@ -1925,8 +1926,7 @@ async function saveToDropbox() {
     // Aggiorna il rev in cache con il nuovo valore restituito da Dropbox
     try {
       if (resJson.rev) {
-        const exported = DB.export();
-        await setCachedDB(currentMode, resJson.rev, new Uint8Array(exported));
+        await setCachedDB(currentMode, resJson.rev, new Uint8Array(data));
         localStorage.setItem(`dbx_rev_${currentMode}`, resJson.rev);
       }
     } catch(e2) {}
@@ -1949,8 +1949,50 @@ async function saveToDropbox() {
     }
     console.error('saveToDropbox error:', e);
   }
+  _dropboxSyncing = false;
   document.getElementById('btn-save').disabled = false;
 }
+
+// ──────────────────────────────────────────────
+// SMART SAVE: cache locale immediata + Dropbox in background
+// ──────────────────────────────────────────────
+let _dropboxSyncing = false;
+let _debounceTimer = null;
+
+// Salva subito in IndexedDB (millisecondi, nessuna rete)
+async function saveToLocalCache() {
+  if (!DB) return;
+  try {
+    const data = DB.export();
+    const revKey = `dbx_rev_${currentMode}`;
+    const rev = localStorage.getItem(revKey) || 'local_' + Date.now();
+    await setCachedDB(currentMode, rev, new Uint8Array(data));
+  } catch(e) {
+    console.warn('saveToLocalCache error:', e);
+  }
+}
+
+// Salva in cache locale subito + avvia sync Dropbox dopo 2s di inattività
+function smartSave() {
+  saveToLocalCache();
+  unsavedChanges = true;
+  updateSaveBtn();
+  if (dropboxToken() && dropboxFilePath()) {
+    if (_debounceTimer) clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(() => {
+      _debounceTimer = null;
+      saveToDropbox();
+    }, 2000);
+  }
+}
+
+// Avviso se si chiude la scheda con sync in corso o modifiche non salvate
+window.addEventListener('beforeunload', (e) => {
+  if (_dropboxSyncing || unsavedChanges) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 // ──────────────────────────────────────────────
 // SYNC BAR TOGGLE
@@ -2633,14 +2675,9 @@ async function saveFilm() {
       const placeholders = Object.keys(vals).map(() => '?').join(',');
       DB.run(`INSERT INTO films (${keys}) VALUES (${placeholders})`, Object.values(vals));
     }
-    unsavedChanges = true;
-    updateSaveBtn();
     loadFilms();
     closeModal();
-    // Salva automaticamente su Dropbox se connesso
-    if (dropboxToken() && dropboxFilePath()) {
-      await saveToDropbox();
-    }
+    smartSave();
   } catch(e) {
     alert('Errore salvataggio: ' + e.message);
   }
@@ -2714,7 +2751,7 @@ async function toggleSeen(id) {
       }
     }
     loadFilms();
-    if (dropboxToken() && dropboxFilePath()) await saveToDropbox();
+    smartSave();
   } catch(e) {
     alert('Errore: ' + e.message);
   }
@@ -2727,7 +2764,7 @@ async function quickSaveRating(id, value) {
     const f = allFilms.find(x => x.id === id);
     if (f) f.rating = value;
     loadFilms();
-    if (dropboxToken() && dropboxFilePath()) await saveToDropbox();
+    smartSave();
   } catch(e) {
     alert('Errore salvataggio voto: ' + e.message);
   }
@@ -2752,11 +2789,9 @@ async function confirmDelete() {
   closeDeletePopup();
   DB.run('DELETE FROM films WHERE ID=?', [id]);
   DB.run('DELETE FROM affiches WHERE IDFilm=?', [id]);
-  unsavedChanges = true;
-  updateSaveBtn();
   loadFilms();
   closeModal();
-  if (dropboxToken() && dropboxFilePath()) await saveToDropbox();
+  smartSave();
 }
 
 function closeDeletePopup() {
