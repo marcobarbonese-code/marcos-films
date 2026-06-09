@@ -1441,8 +1441,8 @@ async function pkceChallenge() {
 // ── Login: avvia flusso PKCE ──
 async function dropboxLogin() {
   const { verifier, challenge } = await pkceChallenge();
-  sessionStorage.setItem('pkce_verifier', verifier);
-  sessionStorage.setItem('pkce_mode', currentMode);
+  localStorage.setItem('pkce_verifier', verifier);
+  localStorage.setItem('pkce_mode', currentMode);
   const url = 'https://www.dropbox.com/oauth2/authorize'
     + `?client_id=${DBX_APP_KEY}`
     + `&response_type=code`
@@ -1455,6 +1455,7 @@ async function dropboxLogin() {
 
 // ── Scambia code → access+refresh token ──
 async function pkceExchange(code, verifier) {
+  if (!verifier) throw new Error('Verifier PKCE mancante — riprova il login');
   const res = await fetch('https://api.dropbox.com/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1466,8 +1467,11 @@ async function pkceExchange(code, verifier) {
       code_verifier: verifier
     })
   });
-  if (!res.ok) throw new Error('Scambio token fallito: ' + await res.text());
-  return res.json(); // { access_token, refresh_token, expires_in, ... }
+  const text = await res.text();
+  if (!res.ok) throw new Error('Scambio token fallito: ' + text);
+  const data = JSON.parse(text);
+  if (!data.access_token) throw new Error('Nessun access_token nella risposta: ' + text);
+  return data;
 }
 
 // ── Rinnova access token usando il refresh token ──
@@ -1565,10 +1569,10 @@ async function init() {
   const params = new URLSearchParams(location.search);
   const code = params.get('code');
   if (code) {
-    const verifier = sessionStorage.getItem('pkce_verifier');
-    const mode = sessionStorage.getItem('pkce_mode') || 'films';
-    sessionStorage.removeItem('pkce_verifier');
-    sessionStorage.removeItem('pkce_mode');
+    const verifier = localStorage.getItem('pkce_verifier');
+    const mode = localStorage.getItem('pkce_mode') || 'films';
+    localStorage.removeItem('pkce_verifier');
+    localStorage.removeItem('pkce_mode');
     currentMode = mode;
     localStorage.setItem('current_mode', mode);
     try {
@@ -1580,8 +1584,8 @@ async function init() {
       setStatus('Connesso a Dropbox!', 'ok');
     } catch(e) {
       setStatus('Errore autenticazione: ' + e.message, 'err');
+      document.getElementById('sync-bar').classList.remove('hidden');
     }
-    // Rimuove ?code= dall'URL senza ricaricare la pagina
     history.replaceState(null, '', location.pathname);
   }
 
