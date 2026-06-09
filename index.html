@@ -703,7 +703,7 @@
     border: 1px solid rgba(232,71,71,0.25);
     border-radius: 18px;
     width: 100%; max-width: 340px;
-    padding: 28px 24px 24px;
+    padding: 32px 24px 28px;
     animation: slideUp .22s ease;
     text-align: center;
   }
@@ -1263,11 +1263,11 @@
 <!-- DELETE CONFIRM POPUP -->
 <div id="delete-popup" onclick="closeDeletePopupIfOutside(event)">
   <div id="delete-panel">
-    <div class="pw-icon" style="background:rgba(232,71,71,0.12);border-color:rgba(232,71,71,0.3);color:var(--red)">
+    <div class="pw-icon" style="background:rgba(232,71,71,0.12);border:1px solid rgba(232,71,71,0.3);color:var(--red);margin-bottom:20px">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
     </div>
-    <h3 id="delete-title" style="color:var(--text)">Elimina film</h3>
-    <p class="pw-question" id="delete-msg">Sei sicuro di voler eliminare questo film? L'operazione è irreversibile.</p>
+    <h3 id="delete-title" style="color:var(--text);margin-bottom:12px">Elimina film</h3>
+    <p class="pw-question" id="delete-msg" style="margin-bottom:28px">Sei sicuro di voler eliminare questo film? L'operazione è irreversibile.</p>
     <div class="pw-actions">
       <button class="btn secondary" style="flex:1" onclick="closeDeletePopup()">Annulla</button>
       <button class="btn" style="flex:1;background:var(--red);border-color:var(--red)" onclick="confirmDelete()">
@@ -1773,6 +1773,7 @@ async function saveToDropbox() {
     const data = DB.export();
     const blob = new Blob([data], { type: 'application/octet-stream' });
 
+    setProgress(40);
     const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
       method: 'POST',
       headers: {
@@ -1788,9 +1789,13 @@ async function saveToDropbox() {
       body: blob
     });
 
-    const resJson = await res.json();
+    setProgress(70);
+    const resText = await res.text();
+    let resJson;
+    try { resJson = JSON.parse(resText); } catch(e) { resJson = {}; }
+
     if (!res.ok) {
-      throw new Error(resJson.error_summary || 'Upload fallito');
+      throw new Error(resJson.error_summary || resText || `HTTP ${res.status}`);
     }
 
     // Aggiorna il rev in cache con il nuovo valore restituito da Dropbox
@@ -1808,8 +1813,9 @@ async function saveToDropbox() {
     updateSaveBtn();
     setTimeout(() => setProgress(0), 800);
   } catch(e) {
-    setStatus('' + e.message, 'err');
+    setStatus('Salvataggio fallito: ' + e.message, 'err');
     setProgress(0);
+    console.error('saveToDropbox error:', e);
   }
   document.getElementById('btn-save').disabled = false;
 }
