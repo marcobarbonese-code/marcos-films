@@ -689,6 +689,25 @@
     75% { transform: translateX(6px); }
   }
 
+  #delete-popup {
+    display: none;
+    position: fixed; inset: 0; z-index: 510;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(6px);
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #delete-popup.open { display: flex; }
+  #delete-panel {
+    background: var(--card);
+    border: 1px solid rgba(232,71,71,0.25);
+    border-radius: 18px;
+    width: 100%; max-width: 340px;
+    padding: 28px 24px 24px;
+    animation: slideUp .22s ease;
+    text-align: center;
+  }
+
   /* ── PROGRESS BAR ── */
   #progress-bar {
     position: fixed; top: 0; left: 0; z-index: 999;
@@ -1236,6 +1255,24 @@
       <button class="btn" style="flex:1" onclick="checkPassword()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         Conferma
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM POPUP -->
+<div id="delete-popup" onclick="closeDeletePopupIfOutside(event)">
+  <div id="delete-panel">
+    <div class="pw-icon" style="background:rgba(232,71,71,0.12);border-color:rgba(232,71,71,0.3);color:var(--red)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    </div>
+    <h3 id="delete-title" style="color:var(--text)">Elimina film</h3>
+    <p class="pw-question" id="delete-msg">Sei sicuro di voler eliminare questo film? L'operazione è irreversibile.</p>
+    <div class="pw-actions">
+      <button class="btn secondary" style="flex:1" onclick="closeDeletePopup()">Annulla</button>
+      <button class="btn" style="flex:1;background:var(--red);border-color:var(--red)" onclick="confirmDelete()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+        Elimina
       </button>
     </div>
   </div>
@@ -2440,7 +2477,7 @@ function showForm(f) {
   document.getElementById('modal-overlay').classList.add('open');
 }
 
-function saveFilm() {
+async function saveFilm() {
   const vals = {
     TitreVF: gv('f-title'), TitreVO: gv('f-titleOrig'),
     Annee: gv('f-year'), Duree: gv('f-duration'), Note: gv('f-rating'),
@@ -2464,7 +2501,7 @@ function saveFilm() {
     closeModal();
     // Salva automaticamente su Dropbox se connesso
     if (dropboxToken() && dropboxFilePath()) {
-      saveToDropbox();
+      await saveToDropbox();
     }
   } catch(e) {
     alert('Errore salvataggio: ' + e.message);
@@ -2505,7 +2542,7 @@ function pickRating(value) {
   if (el) el.textContent = value ? `${value}/10` : '— /10';
 }
 
-function toggleSeen(id) {
+async function toggleSeen(id) {
   const f = allFilms.find(x => x.id === id);
   if (!f || !window._vuCol) return;
 
@@ -2539,36 +2576,58 @@ function toggleSeen(id) {
       }
     }
     loadFilms();
-    if (dropboxToken() && dropboxFilePath()) saveToDropbox();
+    if (dropboxToken() && dropboxFilePath()) await saveToDropbox();
   } catch(e) {
     alert('Errore: ' + e.message);
   }
 }
 
-function quickSaveRating(id, value) {
+async function quickSaveRating(id, value) {
   try {
     DB.run('UPDATE films SET Note=?, DateHeureMAJ=? WHERE ID=?',
       [value, new Date().toISOString(), id]);
     const f = allFilms.find(x => x.id === id);
     if (f) f.rating = value;
     loadFilms();
-    if (dropboxToken() && dropboxFilePath()) saveToDropbox();
+    if (dropboxToken() && dropboxFilePath()) await saveToDropbox();
   } catch(e) {
     alert('Errore salvataggio voto: ' + e.message);
   }
 }
 
+let _deleteFilmId = null;
+
 function deleteFilm(id) {
+  const f = allFilms.find(x => x.id === id);
   requestPassword(() => {
-    if (!confirm('Eliminare questo film?')) return;
-    DB.run('DELETE FROM films WHERE ID=?', [id]);
-    DB.run('DELETE FROM affiches WHERE IDFilm=?', [id]);
-    unsavedChanges = true;
-    updateSaveBtn();
-    loadFilms();
-    closeModal();
-    if (dropboxToken() && dropboxFilePath()) saveToDropbox();
+    _deleteFilmId = id;
+    const title = f ? f.title : 'questo film';
+    document.getElementById('delete-msg').textContent =
+      `Sei sicuro di voler eliminare "${title}"? L'operazione è irreversibile.`;
+    document.getElementById('delete-popup').classList.add('open');
   });
+}
+
+async function confirmDelete() {
+  const id = _deleteFilmId;
+  if (!id) return;
+  closeDeletePopup();
+  DB.run('DELETE FROM films WHERE ID=?', [id]);
+  DB.run('DELETE FROM affiches WHERE IDFilm=?', [id]);
+  unsavedChanges = true;
+  updateSaveBtn();
+  loadFilms();
+  closeModal();
+  if (dropboxToken() && dropboxFilePath()) await saveToDropbox();
+}
+
+function closeDeletePopup() {
+  document.getElementById('delete-popup').classList.remove('open');
+  _deleteFilmId = null;
+}
+
+function closeDeletePopupIfOutside(e) {
+  if (e.target === document.getElementById('delete-popup')) closeDeletePopup();
 }
 
 function updateSaveBtn() {
