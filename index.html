@@ -555,6 +555,23 @@
     flex-shrink: 0;
   }
   .btn-trailer:hover { opacity: .85; transform: scale(1.1); }
+  
+  /* ── WIKIPEDIA BUTTON ── */
+  .btn-wiki {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: 'Times New Roman', serif;
+    font-size: 16px; font-weight: bold;
+    transition: all .2s;
+    flex-shrink: 0;
+  }
+  .btn-wiki:hover { border-color: var(--text); transform: scale(1.1); }
 
   .director-link {
     cursor: pointer;
@@ -2498,6 +2515,9 @@ function openFilm(id) {
 
   const genreTags = f.genre.split('/').map(g => `<span class="tag">${esc(g.trim())}</span>`).join('');
 
+  const wikiSearchTerm = encodeURIComponent('"' + f.title + '" film' + (f.year ? ' ' + f.year : ''));
+  const wikiLink = 'https://it.wikipedia.org/w/index.php?search=' + wikiSearchTerm;
+
   document.getElementById('modal-content').innerHTML = `
     ${posterHTML}
     <div class="modal-body">
@@ -2507,6 +2527,7 @@ function openFilm(id) {
         ${f.trailer ? `<a class="btn-trailer" href="${esc(f.trailer)}" target="_blank" rel="noopener" title="Guarda il Trailer">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
         </a>` : ''}
+        <a class="btn-wiki" href="${wikiLink}" target="_blank" rel="noopener" title="Cerca su Wikipedia">W</a>
         ${f.ref ? `<span style="font-size:13px;color:var(--muted);letter-spacing:.5px">${esc(String(f.ref))}</span>` : ''}
         ${window._vuCol ? `<span id="seen-badge-${id}" onclick="toggleSeen(${id})" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;border-radius:20px;padding:2px 8px;transition:all .2s;-webkit-tap-highlight-color:transparent;${f.seen ? 'color:#5ecb82;background:rgba(94,203,130,0.12);border:1px solid rgba(94,203,130,0.3)' : 'color:var(--muted);background:var(--surface);border:1px solid var(--border)'}">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
